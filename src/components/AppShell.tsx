@@ -43,7 +43,13 @@ const THEMES = [
 export function AppShell({ children }: { children: ReactNode }) {
   const state = useAppState();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
 
   useEffect(() => {
     hydrate();
