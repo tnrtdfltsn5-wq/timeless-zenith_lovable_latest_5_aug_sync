@@ -450,11 +450,19 @@ function TimerPage() {
 }
 
 function ManualLogger() {
+  const state = useAppState();
+  const [mins, setMins] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [showRange, setShowRange] = useState(false);
   const [tag, setTag] = useState<Tag>("Flow State");
   const [desc, setDesc] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
+  const [pickSlot, setPickSlot] = useState(false);
+
+  const key = todayKey();
+  const day = getDay(state, key);
+  const slots = computeSlots(day, key, new Date());
 
   function toTs(hhmm: string) {
     const [h, m] = hhmm.split(":").map(Number);
@@ -463,18 +471,42 @@ function ManualLogger() {
     return d.getTime();
   }
 
-  function log() {
-    if (!from || !to) {
-      setMsg("Pick both a start and an end time.");
-      return;
-    }
-    let start = toTs(from);
-    let end = toTs(to);
-    if (end <= start) end += 86400000; // crossed midnight
+  function commit(start: number, end: number) {
     haptic(15);
     addSession(start, end, tag, desc.trim() || "Manual entry");
     setMsg(`Logged ${formatHM((end - start) / 60000)} of ${tag}.`);
     setDesc("");
+    setMins("");
+    setFrom("");
+    setTo("");
+  }
+
+  function log() {
+    if (showRange && from && to) {
+      let start = toTs(from);
+      let end = toTs(to);
+      if (end <= start) end += 86400000; // crossed midnight
+      commit(start, end);
+      return;
+    }
+    const m = Number(mins);
+    if (!m || m <= 0) {
+      setMsg("Enter a duration in minutes, or use an exact time range.");
+      return;
+    }
+    setMsg(null);
+    setPickSlot(true);
+  }
+
+  function logIntoSlot(hour: number) {
+    const m = Number(mins);
+    const d = new Date();
+    d.setHours(hour, 0, 0, 0);
+    // stack after what's already logged in that slot so entries don't overlap
+    const used = slots.find((s) => s.hour === hour)?.loggedMins ?? 0;
+    const start = d.getTime() + Math.min(used, 59) * 60000;
+    setPickSlot(false);
+    commit(start, start + m * 60000);
   }
 
   return (
@@ -483,28 +515,53 @@ function ManualLogger() {
         Manual time logger
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
-        Forgot to start the timer? Add it here — it splits across hourly slots automatically.
+        Forgot to start the timer? Enter minutes and pick the hour slot — or set an exact range.
       </p>
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <label className="text-xs font-semibold text-muted-foreground">
-          From
-          <input
-            type="time"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-input bg-surface-2 px-3 py-2 text-sm text-foreground"
-          />
-        </label>
-        <label className="text-xs font-semibold text-muted-foreground">
-          To
-          <input
-            type="time"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-input bg-surface-2 px-3 py-2 text-sm text-foreground"
-          />
-        </label>
-      </div>
+
+      <label className="mt-3 block text-xs font-semibold text-muted-foreground">
+        Duration (minutes)
+        <input
+          type="number"
+          inputMode="numeric"
+          min={1}
+          value={mins}
+          onChange={(e) => setMins(e.target.value)}
+          placeholder="e.g. 20"
+          className="mt-1 w-full rounded-xl border border-input bg-surface-2 px-3 py-2 text-sm text-foreground"
+        />
+      </label>
+
+      <button
+        type="button"
+        onClick={() => setShowRange((v) => !v)}
+        className="mt-2 text-xs font-semibold text-primary"
+      >
+        {showRange ? "Hide exact time range" : "Set exact time range (optional)"}
+      </button>
+
+      {showRange ? (
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <label className="text-xs font-semibold text-muted-foreground">
+            From
+            <input
+              type="time"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-input bg-surface-2 px-3 py-2 text-sm text-foreground"
+            />
+          </label>
+          <label className="text-xs font-semibold text-muted-foreground">
+            To
+            <input
+              type="time"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-input bg-surface-2 px-3 py-2 text-sm text-foreground"
+            />
+          </label>
+        </div>
+      ) : null}
+
       <div className="mt-2 flex items-center gap-2">
         {(["Flow State", "Shallow Work"] as Tag[]).map((t) => (
           <Pill key={t} active={tag === t} onClick={() => setTag(t)}>
@@ -525,9 +582,49 @@ function ManualLogger() {
         <Plus className="h-4 w-4" /> Log session
       </Btn>
       {msg ? <p className="mt-2 text-xs font-semibold text-success">{msg}</p> : null}
+
+      {pickSlot ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-3 sm:items-center"
+          onClick={() => setPickSlot(false)}
+        >
+          <div
+            className="animate-rise max-h-[70vh] w-full max-w-md overflow-y-auto rounded-2xl border border-border bg-surface-1 p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-sm font-bold text-foreground">
+              Which slot does {mins} min belong to?
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Longer entries roll over into the next slots automatically.
+            </p>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              {slots
+                .filter((s) => !s.disabled)
+                .map((s) => (
+                  <button
+                    key={s.slot}
+                    type="button"
+                    onClick={() => logIntoSlot(s.hour)}
+                    className="rounded-xl border border-input bg-surface-2 px-2 py-2 text-center text-xs font-semibold text-foreground transition hover:border-primary"
+                  >
+                    <div>{s.slot}</div>
+                    <div className="text-[10px] font-medium text-muted-foreground">
+                      {formatHM(s.loggedMins)}
+                    </div>
+                  </button>
+                ))}
+            </div>
+            <Btn className="mt-3 w-full" onClick={() => setPickSlot(false)}>
+              Cancel
+            </Btn>
+          </div>
+        </div>
+      ) : null}
     </Card>
   );
 }
+
 
 
 function startOfHour(ts: number) {
