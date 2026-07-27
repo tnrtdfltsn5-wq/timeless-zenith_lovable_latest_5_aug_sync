@@ -13,6 +13,7 @@ import { Route as TimelineRouteImport } from './routes/timeline'
 import { Route as TasksRouteImport } from './routes/tasks'
 import { Route as ScoreRouteImport } from './routes/score'
 import { Route as HistoryRouteImport } from './routes/history'
+import { Route as DevRouteImport } from './routes/dev'
 import { Route as DataRouteImport } from './routes/data'
 import { Route as ArenaRouteImport } from './routes/arena'
 import { Route as IndexRouteImport } from './routes/index'
@@ -37,6 +38,11 @@ const HistoryRoute = HistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DevRoute = DevRouteImport.update({
+  id: '/dev',
+  path: '/dev',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DataRoute = DataRouteImport.update({
   id: '/data',
   path: '/data',
@@ -57,6 +63,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/arena': typeof ArenaRoute
   '/data': typeof DataRoute
+  '/dev': typeof DevRoute
   '/history': typeof HistoryRoute
   '/score': typeof ScoreRoute
   '/tasks': typeof TasksRoute
@@ -66,6 +73,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/arena': typeof ArenaRoute
   '/data': typeof DataRoute
+  '/dev': typeof DevRoute
   '/history': typeof HistoryRoute
   '/score': typeof ScoreRoute
   '/tasks': typeof TasksRoute
@@ -76,6 +84,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/arena': typeof ArenaRoute
   '/data': typeof DataRoute
+  '/dev': typeof DevRoute
   '/history': typeof HistoryRoute
   '/score': typeof ScoreRoute
   '/tasks': typeof TasksRoute
@@ -87,17 +96,27 @@ export interface FileRouteTypes {
     | '/'
     | '/arena'
     | '/data'
+    | '/dev'
     | '/history'
     | '/score'
     | '/tasks'
     | '/timeline'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/arena' | '/data' | '/history' | '/score' | '/tasks' | '/timeline'
+  to:
+    | '/'
+    | '/arena'
+    | '/data'
+    | '/dev'
+    | '/history'
+    | '/score'
+    | '/tasks'
+    | '/timeline'
   id:
     | '__root__'
     | '/'
     | '/arena'
     | '/data'
+    | '/dev'
     | '/history'
     | '/score'
     | '/tasks'
@@ -108,6 +127,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ArenaRoute: typeof ArenaRoute
   DataRoute: typeof DataRoute
+  DevRoute: typeof DevRoute
   HistoryRoute: typeof HistoryRoute
   ScoreRoute: typeof ScoreRoute
   TasksRoute: typeof TasksRoute
@@ -144,6 +164,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dev': {
+      id: '/dev'
+      path: '/dev'
+      fullPath: '/dev'
+      preLoaderRoute: typeof DevRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/data': {
       id: '/data'
       path: '/data'
@@ -172,6 +199,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ArenaRoute: ArenaRoute,
   DataRoute: DataRoute,
+  DevRoute: DevRoute,
   HistoryRoute: HistoryRoute,
   ScoreRoute: ScoreRoute,
   TasksRoute: TasksRoute,
