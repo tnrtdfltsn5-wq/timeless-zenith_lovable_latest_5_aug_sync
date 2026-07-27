@@ -81,10 +81,13 @@
   --shadow-soft: 0 1px 2px oklch(0.2 0.05 277 / 0.06), 0 8px 24px -12px oklch(0.2 0.05 277 / 0.18);
   --shadow-glow: 0 0 0 1px oklch(from var(--primary) l c h / 0.18), 0 12px 40px -16px oklch(from var(--primary) l c h / 0.5);
   --gradient-primary: linear-gradient(135deg, var(--primary), var(--primary-glow));
+  color-scheme: light;
 }
 
 .dark {
+  color-scheme: dark;
   --background: oklch(0.17 0.028 265);
+
   --foreground: oklch(0.97 0.006 265);
   --surface: oklch(0.22 0.03 265);
   --surface-2: oklch(0.26 0.032 265);
