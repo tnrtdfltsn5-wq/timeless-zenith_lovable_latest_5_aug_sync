@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TimelineRouteImport } from './routes/timeline'
 import { Route as TasksRouteImport } from './routes/tasks'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ScoreRouteImport } from './routes/score'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as DevRouteImport } from './routes/dev'
@@ -26,6 +27,11 @@ const TimelineRoute = TimelineRouteImport.update({
 const TasksRoute = TasksRouteImport.update({
   id: '/tasks',
   path: '/tasks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ScoreRoute = ScoreRouteImport.update({
@@ -66,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/dev': typeof DevRoute
   '/history': typeof HistoryRoute
   '/score': typeof ScoreRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/tasks': typeof TasksRoute
   '/timeline': typeof TimelineRoute
 }
@@ -76,6 +83,7 @@ export interface FileRoutesByTo {
   '/dev': typeof DevRoute
   '/history': typeof HistoryRoute
   '/score': typeof ScoreRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/tasks': typeof TasksRoute
   '/timeline': typeof TimelineRoute
 }
@@ -87,6 +95,7 @@ export interface FileRoutesById {
   '/dev': typeof DevRoute
   '/history': typeof HistoryRoute
   '/score': typeof ScoreRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/tasks': typeof TasksRoute
   '/timeline': typeof TimelineRoute
 }
@@ -99,6 +108,7 @@ export interface FileRouteTypes {
     | '/dev'
     | '/history'
     | '/score'
+    | '/sitemap.xml'
     | '/tasks'
     | '/timeline'
   fileRoutesByTo: FileRoutesByTo
@@ -109,6 +119,7 @@ export interface FileRouteTypes {
     | '/dev'
     | '/history'
     | '/score'
+    | '/sitemap.xml'
     | '/tasks'
     | '/timeline'
   id:
@@ -119,6 +130,7 @@ export interface FileRouteTypes {
     | '/dev'
     | '/history'
     | '/score'
+    | '/sitemap.xml'
     | '/tasks'
     | '/timeline'
   fileRoutesById: FileRoutesById
@@ -130,6 +142,7 @@ export interface RootRouteChildren {
   DevRoute: typeof DevRoute
   HistoryRoute: typeof HistoryRoute
   ScoreRoute: typeof ScoreRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TasksRoute: typeof TasksRoute
   TimelineRoute: typeof TimelineRoute
 }
@@ -148,6 +161,13 @@ declare module '@tanstack/react-router' {
       path: '/tasks'
       fullPath: '/tasks'
       preLoaderRoute: typeof TasksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/score': {
@@ -202,6 +222,7 @@ const rootRouteChildren: RootRouteChildren = {
   DevRoute: DevRoute,
   HistoryRoute: HistoryRoute,
   ScoreRoute: ScoreRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   TasksRoute: TasksRoute,
   TimelineRoute: TimelineRoute,
 }
