@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Play, Pause, Square, Zap, Waves, Timer as TimerIcon, Hourglass } from "lucide-react";
+import { Play, Pause, Square, Zap, Waves, Timer as TimerIcon, Hourglass, Plus } from "lucide-react";
 import {
   addSession,
   computeDayScore,
@@ -442,9 +442,93 @@ function TimerPage() {
           </span>
         </div>
       </Card>
+
+      {/* Manual time logger */}
+      <ManualLogger />
     </div>
   );
 }
+
+function ManualLogger() {
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [tag, setTag] = useState<Tag>("Flow State");
+  const [desc, setDesc] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+
+  function toTs(hhmm: string) {
+    const [h, m] = hhmm.split(":").map(Number);
+    const d = new Date();
+    d.setHours(h || 0, m || 0, 0, 0);
+    return d.getTime();
+  }
+
+  function log() {
+    if (!from || !to) {
+      setMsg("Pick both a start and an end time.");
+      return;
+    }
+    let start = toTs(from);
+    let end = toTs(to);
+    if (end <= start) end += 86400000; // crossed midnight
+    haptic(15);
+    addSession(start, end, tag, desc.trim() || "Manual entry");
+    setMsg(`Logged ${formatHM((end - start) / 60000)} of ${tag}.`);
+    setDesc("");
+  }
+
+  return (
+    <Card>
+      <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+        Manual time logger
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Forgot to start the timer? Add it here — it splits across hourly slots automatically.
+      </p>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <label className="text-xs font-semibold text-muted-foreground">
+          From
+          <input
+            type="time"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            className="mt-1 w-full rounded-xl border border-input bg-surface-2 px-3 py-2 text-sm text-foreground"
+          />
+        </label>
+        <label className="text-xs font-semibold text-muted-foreground">
+          To
+          <input
+            type="time"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="mt-1 w-full rounded-xl border border-input bg-surface-2 px-3 py-2 text-sm text-foreground"
+          />
+        </label>
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        {(["Flow State", "Shallow Work"] as Tag[]).map((t) => (
+          <Pill key={t} active={tag === t} onClick={() => setTag(t)}>
+            <span className="inline-flex items-center gap-1">
+              {t === "Flow State" ? <Zap className="h-3 w-3" /> : <Waves className="h-3 w-3" />}
+              {t}
+            </span>
+          </Pill>
+        ))}
+      </div>
+      <input
+        value={desc}
+        onChange={(e) => setDesc(e.target.value)}
+        placeholder="What did you work on?"
+        className="mt-2 w-full rounded-xl border border-input bg-surface-2 px-3 py-2 text-sm text-foreground"
+      />
+      <Btn variant="primary" className="mt-2 w-full" onClick={log}>
+        <Plus className="h-4 w-4" /> Log session
+      </Btn>
+      {msg ? <p className="mt-2 text-xs font-semibold text-success">{msg}</p> : null}
+    </Card>
+  );
+}
+
 
 function startOfHour(ts: number) {
   const d = new Date(ts);
