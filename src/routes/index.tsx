@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Play, Pause, Square, Zap, Waves, Timer as TimerIcon, Hourglass } from "lucide-react";
+import { Play, Pause, Square, Zap, Waves, Timer as TimerIcon, Hourglass, Plus } from "lucide-react";
 import {
   addSession,
   computeDayScore,
