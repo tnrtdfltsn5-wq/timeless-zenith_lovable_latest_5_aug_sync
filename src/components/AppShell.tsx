@@ -87,7 +87,17 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="flex-1 px-4 pt-4 pb-28">{children}</main>
+      <main className="flex-1 px-4 pt-4 pb-28">
+        {mounted ? (
+          children
+        ) : (
+          <div className="space-y-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-28 animate-pulse rounded-2xl bg-surface-2" />
+            ))}
+          </div>
+        )}
+      </main>
 
       {moreOpen ? (
         <button
