@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TimelineRouteImport } from './routes/timeline'
 import { Route as TasksRouteImport } from './routes/tasks'
 import { Route as ScoreRouteImport } from './routes/score'
+import { Route as HistoryRouteImport } from './routes/history'
 import { Route as IndexRouteImport } from './routes/index'
 
 const TimelineRoute = TimelineRouteImport.update({
@@ -29,6 +30,11 @@ const ScoreRoute = ScoreRouteImport.update({
   path: '/score',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HistoryRoute = HistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -37,12 +43,14 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/history': typeof HistoryRoute
   '/score': typeof ScoreRoute
   '/tasks': typeof TasksRoute
   '/timeline': typeof TimelineRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/history': typeof HistoryRoute
   '/score': typeof ScoreRoute
   '/tasks': typeof TasksRoute
   '/timeline': typeof TimelineRoute
@@ -50,20 +58,22 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/history': typeof HistoryRoute
   '/score': typeof ScoreRoute
   '/tasks': typeof TasksRoute
   '/timeline': typeof TimelineRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/score' | '/tasks' | '/timeline'
+  fullPaths: '/' | '/history' | '/score' | '/tasks' | '/timeline'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/score' | '/tasks' | '/timeline'
-  id: '__root__' | '/' | '/score' | '/tasks' | '/timeline'
+  to: '/' | '/history' | '/score' | '/tasks' | '/timeline'
+  id: '__root__' | '/' | '/history' | '/score' | '/tasks' | '/timeline'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  HistoryRoute: typeof HistoryRoute
   ScoreRoute: typeof ScoreRoute
   TasksRoute: typeof TasksRoute
   TimelineRoute: typeof TimelineRoute
@@ -92,6 +102,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ScoreRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/history': {
+      id: '/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof HistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -104,6 +121,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  HistoryRoute: HistoryRoute,
   ScoreRoute: ScoreRoute,
   TasksRoute: TasksRoute,
   TimelineRoute: TimelineRoute,
