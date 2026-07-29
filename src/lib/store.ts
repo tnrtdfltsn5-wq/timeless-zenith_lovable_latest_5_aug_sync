@@ -5,6 +5,9 @@ import { useSyncExternalStore } from "react";
 export type Tag = "Flow State" | "Shallow Work";
 export const TAGS: Tag[] = ["Flow State", "Shallow Work"];
 
+export type BreakTag = "Essential" | "Rest" | "Sleep" | "Entertainment";
+export const BREAK_TAGS: BreakTag[] = ["Essential", "Rest", "Sleep", "Entertainment"];
+
 export interface LogEntry {
   id: number;
   durationMins: number;
@@ -16,21 +19,54 @@ export interface LogEntry {
   end: number;
 }
 
+export interface BreakEntry {
+  id: number;
+  tag: BreakTag;
+  start: number;
+  end: number;
+  mins: number;
+  slotHour: string;
+}
+
+export interface SubTask {
+  id: number;
+  name: string;
+  completed: boolean;
+}
+
 export interface Task {
   id: number;
   name: string;
   completed: boolean;
+  comment?: string;
+  subtasks?: SubTask[];
+  /** optional deadline window expressed as hour numbers (0-23) */
+  fromHour?: number | null;
+  toHour?: number | null;
+  /** planned minutes for the whole task, split evenly across subtasks */
+  plannedMins?: number | null;
+}
+
+export interface SlotTodo {
+  id: number;
+  text: string;
 }
 
 export interface DayData {
   targetHours: number;
   tasks: Task[];
   logs: LogEntry[];
+  breaks: BreakEntry[];
   slotTargets: Record<string, number>;
   slotAssignments: Record<string, string>;
+  /** multiple task ids attached to one slot */
+  slotTaskIds: Record<string, number[]>;
+  slotNotes: Record<string, string>;
+  slotTodos: Record<string, SlotTodo[]>;
   disabledSlots: string[];
   scoreAdjust?: number;
 }
+
 
 export interface Spend {
   id: number;
