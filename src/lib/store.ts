@@ -518,7 +518,10 @@ export function computeDayScore(day: DayData | undefined, coeff: Coefficients): 
   const target = day.targetHours || 6;
   const timeRatio = Math.min(1, target > 0 ? hours / target : 0);
   const tasks = day.tasks ?? [];
-  const taskRatio = tasks.length ? tasks.filter((t) => t.completed).length / tasks.length : 1;
+  const taskRatio = tasks.length
+    ? tasks.reduce((a, t) => a + taskProgress(t), 0) / tasks.length
+    : 1;
+
   const n = Math.min(
     1,
     Math.max(0, coeff.timeWeight * timeRatio + coeff.taskWeight * taskRatio),
