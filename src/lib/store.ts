@@ -5,9 +5,6 @@ import { useSyncExternalStore } from "react";
 export type Tag = "Flow State" | "Shallow Work";
 export const TAGS: Tag[] = ["Flow State", "Shallow Work"];
 
-export type BreakTag = "Essential" | "Rest" | "Sleep" | "Entertainment";
-export const BREAK_TAGS: BreakTag[] = ["Essential", "Rest", "Sleep", "Entertainment"];
-
 export interface LogEntry {
   id: number;
   durationMins: number;
@@ -19,54 +16,21 @@ export interface LogEntry {
   end: number;
 }
 
-export interface BreakEntry {
-  id: number;
-  tag: BreakTag;
-  start: number;
-  end: number;
-  mins: number;
-  slotHour: string;
-}
-
-export interface SubTask {
-  id: number;
-  name: string;
-  completed: boolean;
-}
-
 export interface Task {
   id: number;
   name: string;
   completed: boolean;
-  comment?: string;
-  subtasks?: SubTask[];
-  /** optional deadline window expressed as hour numbers (0-23) */
-  fromHour?: number | null;
-  toHour?: number | null;
-  /** planned minutes for the whole task, split evenly across subtasks */
-  plannedMins?: number | null;
-}
-
-export interface SlotTodo {
-  id: number;
-  text: string;
 }
 
 export interface DayData {
   targetHours: number;
   tasks: Task[];
   logs: LogEntry[];
-  breaks: BreakEntry[];
   slotTargets: Record<string, number>;
   slotAssignments: Record<string, string>;
-  /** multiple task ids attached to one slot */
-  slotTaskIds: Record<string, number[]>;
-  slotNotes: Record<string, string>;
-  slotTodos: Record<string, SlotTodo[]>;
   disabledSlots: string[];
   scoreAdjust?: number;
 }
-
 
 export interface Spend {
   id: number;
@@ -106,10 +70,7 @@ export interface TimerState {
   pomoPhase: "work" | "break";
   pomoRemainingSecs: number;
   pomoElapsedWorkSecs: number;
-  /** when the timer last stopped / the user last left — used to log idle as a break */
-  idleSince: number | null;
 }
-
 
 export interface AppState {
   db: Record<string, DayData>;
@@ -144,8 +105,6 @@ const defaultTimer: TimerState = {
   pomoPhase: "work",
   pomoRemainingSecs: 25 * 60,
   pomoElapsedWorkSecs: 0,
-  idleSince: null,
-
 };
 
 const defaultState: AppState = {
@@ -262,19 +221,14 @@ function normalize(raw: Partial<AppState>): AppState {
     const d = s.db[key];
     s.db[key] = {
       targetHours: d.targetHours ?? 6,
-      tasks: (d.tasks ?? []).map((t) => ({ ...t, subtasks: (t.subtasks ?? []).map((x) => ({ ...x })) })),
+      tasks: (d.tasks ?? []).map((t) => ({ ...t })),
       logs: (d.logs ?? []).map((l) => ({ ...l })),
-      breaks: (d.breaks ?? []).map((b) => ({ ...b })),
       slotTargets: d.slotTargets ?? {},
       slotAssignments: d.slotAssignments ?? {},
-      slotTaskIds: d.slotTaskIds ?? {},
-      slotNotes: d.slotNotes ?? {},
-      slotTodos: d.slotTodos ?? {},
       disabledSlots: d.disabledSlots ?? [],
       scoreAdjust: d.scoreAdjust ?? 0,
     };
   }
-
   return s;
 }
 
@@ -315,16 +269,11 @@ export function blankDay(): DayData {
     targetHours: 6,
     tasks: [],
     logs: [],
-    breaks: [],
     slotTargets: {},
     slotAssignments: {},
-    slotTaskIds: {},
-    slotNotes: {},
-    slotTodos: {},
     disabledSlots: [],
     scoreAdjust: 0,
   };
-
 }
 
 export function getDay(s: AppState, key: string): DayData {
@@ -394,33 +343,6 @@ export function addSession(start: number, end: number, tag: Tag, desc: string) {
     s.lastSession = { start, end, mins: (end - start) / 60000 };
   });
 }
-
-/** Log an idle / away period as a break, split per hour slot. */
-export function addBreak(start: number, end: number, tag: BreakTag) {
-  const segs = splitSession(start, end);
-  if (!segs.length) return;
-  setState((s) => {
-    segs.forEach((seg, i) => {
-      if (!s.db[seg.dateKey]) s.db[seg.dateKey] = blankDay();
-      s.db[seg.dateKey].breaks.push({
-        id: Date.now() + i,
-        tag,
-        start: seg.start,
-        end: seg.end,
-        mins: seg.mins,
-        slotHour: seg.slotHour,
-      });
-    });
-  });
-}
-
-/** Fractional progress of a task: subtasks drive it when present. */
-export function taskProgress(t: Task): number {
-  const subs = t.subtasks ?? [];
-  if (subs.length) return subs.filter((s) => s.completed).length / subs.length;
-  return t.completed ? 1 : 0;
-}
-
 
 /* ---------------- Slot target distribution ---------------- */
 
@@ -518,10 +440,7 @@ export function computeDayScore(day: DayData | undefined, coeff: Coefficients): 
   const target = day.targetHours || 6;
   const timeRatio = Math.min(1, target > 0 ? hours / target : 0);
   const tasks = day.tasks ?? [];
-  const taskRatio = tasks.length
-    ? tasks.reduce((a, t) => a + taskProgress(t), 0) / tasks.length
-    : 1;
-
+  const taskRatio = tasks.length ? tasks.filter((t) => t.completed).length / tasks.length : 1;
   const n = Math.min(
     1,
     Math.max(0, coeff.timeWeight * timeRatio + coeff.taskWeight * taskRatio),
@@ -542,15 +461,4 @@ export function lifetimeScores(s: AppState) {
   }
   const spent = s.spends.reduce((a, b) => a + b.amount, 0);
   return { gross, month, spent, net: gross - spent };
-}
-
-/** Break minutes for a day, grouped by break tag. */
-export function breakTotals(day: DayData) {
-  const byTag: Record<string, number> = {};
-  let total = 0;
-  (day.breaks ?? []).forEach((b) => {
-    total += b.mins;
-    byTag[b.tag] = (byTag[b.tag] ?? 0) + b.mins;
-  });
-  return { total, byTag };
 }

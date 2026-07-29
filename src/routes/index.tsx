@@ -2,9 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Play, Pause, Square, Zap, Waves, Timer as TimerIcon, Hourglass, Plus } from "lucide-react";
 import {
-  addBreak,
   addSession,
-  BREAK_TAGS,
   computeDayScore,
   computeSlots,
   dayTotals,
@@ -29,17 +27,7 @@ import {
   requestWakeLock,
   stopBackgroundAudio,
 } from "@/lib/alarm";
-import {
-  Btn,
-  Card,
-  Modal,
-  Pill,
-  Progress,
-  Stat,
-  inputClass,
-  useHydrated,
-  useNow,
-} from "@/components/kit";
+import { Btn, Card, Pill, Progress, Stat, useHydrated, useNow } from "@/components/kit";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -159,21 +147,6 @@ function TimerPage() {
   const todayScore = computeDayScore(state.db[key], state.settings.coeff);
   const { net } = lifetimeScores(state);
 
-  /* --- pending popups --- */
-  const [pendingStop, setPendingStop] = useState<{
-    start: number;
-    end: number;
-    secs: number;
-  } | null>(null);
-  const [stopDesc, setStopDesc] = useState("");
-  const [pendingBreak, setPendingBreak] = useState<{ start: number; end: number } | null>(null);
-
-  const lastActivityEnd = Math.max(
-    state.lastSession?.end ?? 0,
-    ...(day.breaks ?? []).map((b) => b.end),
-    ...day.logs.map((l) => l.end),
-  );
-
   /* --- actions --- */
   function start() {
     haptic(15);
@@ -181,10 +154,6 @@ function TimerPage() {
     requestNotificationPermission();
     void requestWakeLock();
     const t = Date.now();
-    // idle period since the last logged activity becomes a break
-    if (lastActivityEnd > 0 && t - lastActivityEnd >= 2 * 60000 && !timer.paused) {
-      setPendingBreak({ start: lastActivityEnd, end: t });
-    }
     setState((s) => {
       s.timer.running = true;
       s.timer.paused = false;
@@ -195,7 +164,6 @@ function TimerPage() {
         s.timer.pomoPhase = "work";
       }
     });
-    setAwaySince(null);
   }
 
   function pause() {
@@ -217,6 +185,9 @@ function TimerPage() {
     const elapsed = timer.startTime ? Math.floor((end - timer.startTime) / 1000) : 0;
     const totalSecs =
       timer.mode === "stopwatch" ? timer.accumulatedSeconds + elapsed : elapsedWork(timer, elapsed);
+    if (sessionStart && totalSecs > 30) {
+      addSession(sessionStart, end, timer.tag, "Timer session");
+    }
     releaseWakeLock();
     stopBackgroundAudio();
     setState((s) => {
@@ -229,22 +200,7 @@ function TimerPage() {
       s.timer.pomoElapsedWorkSecs = 0;
       s.timer.pomoRemainingSecs = s.settings.pomoWork * 60;
     });
-    if (sessionStart && totalSecs > 30) {
-      setStopDesc("");
-      setPendingStop({ start: sessionStart, end, secs: totalSecs });
-    }
   }
-
-  function confirmStop(tag: Tag) {
-    if (!pendingStop) return;
-    haptic(15);
-    addSession(pendingStop.start, pendingStop.end, tag, stopDesc.trim() || "Timer session");
-    setState((s) => {
-      s.timer.tag = tag;
-    });
-    setPendingStop(null);
-  }
-
 
   const display =
     timer.mode === "stopwatch" ? formatDuration(stopwatchSecs) : formatDuration(pomoRemaining);
@@ -489,88 +445,7 @@ function TimerPage() {
 
       {/* Manual time logger */}
       <ManualLogger />
-
-      {/* Stop & log — tag picker */}
-      <Modal
-        open={!!pendingStop}
-        onClose={() => setPendingStop(null)}
-        title="How was that session?"
-        subtitle={
-          pendingStop
-            ? `${formatClock(pendingStop.start)} — ${formatClock(pendingStop.end)} · ${formatHM(
-                pendingStop.secs / 60,
-              )}`
-            : undefined
-        }
-      >
-        <input
-          value={stopDesc}
-          placeholder="What did you work on? (optional)"
-          onChange={(e) => setStopDesc(e.target.value)}
-          className={cn(inputClass, "mb-3")}
-        />
-        <div className="grid grid-cols-2 gap-2">
-          {(["Flow State", "Shallow Work"] as Tag[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => confirmStop(t)}
-              className="press flex flex-col items-center gap-1 rounded-2xl border border-border bg-surface-2 p-4 hover:border-primary"
-            >
-              {t === "Flow State" ? (
-                <Zap className="h-5 w-5 text-primary" />
-              ) : (
-                <Waves className="h-5 w-5 text-muted-foreground" />
-              )}
-              <span className="text-xs font-bold">{t}</span>
-            </button>
-          ))}
-        </div>
-        <button
-          onClick={() => setPendingStop(null)}
-          className="press mt-3 w-full text-xs font-semibold text-muted-foreground"
-        >
-          Discard this session
-        </button>
-      </Modal>
-
-      {/* Idle gap — break tag picker */}
-      <Modal
-        open={!!pendingBreak}
-        onClose={() => setPendingBreak(null)}
-        title="You were away — log it as a break?"
-        subtitle={
-          pendingBreak
-            ? `${formatClock(pendingBreak.start)} — ${formatClock(pendingBreak.end)} · ${formatHM(
-                (pendingBreak.end - pendingBreak.start) / 60000,
-              )}`
-            : undefined
-        }
-      >
-        <div className="grid grid-cols-2 gap-2">
-          {BREAK_TAGS.map((bt) => (
-            <button
-              key={bt}
-              onClick={() => {
-                if (!pendingBreak) return;
-                haptic();
-                addBreak(pendingBreak.start, pendingBreak.end, bt);
-                setPendingBreak(null);
-              }}
-              className="press rounded-2xl border border-border bg-surface-2 p-3 text-xs font-bold hover:border-primary"
-            >
-              {bt}
-            </button>
-          ))}
-        </div>
-        <button
-          onClick={() => setPendingBreak(null)}
-          className="press mt-3 w-full text-xs font-semibold text-muted-foreground"
-        >
-          Skip
-        </button>
-      </Modal>
     </div>
-
   );
 }
 

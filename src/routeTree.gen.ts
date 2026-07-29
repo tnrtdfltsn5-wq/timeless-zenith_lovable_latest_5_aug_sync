@@ -13,7 +13,6 @@ import { Route as TimelineRouteImport } from './routes/timeline'
 import { Route as TasksRouteImport } from './routes/tasks'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ScoreRouteImport } from './routes/score'
-import { Route as ReportRouteImport } from './routes/report'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as DevRouteImport } from './routes/dev'
 import { Route as DataRouteImport } from './routes/data'
@@ -38,11 +37,6 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const ScoreRoute = ScoreRouteImport.update({
   id: '/score',
   path: '/score',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReportRoute = ReportRouteImport.update({
-  id: '/report',
-  path: '/report',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HistoryRoute = HistoryRouteImport.update({
@@ -77,7 +71,6 @@ export interface FileRoutesByFullPath {
   '/data': typeof DataRoute
   '/dev': typeof DevRoute
   '/history': typeof HistoryRoute
-  '/report': typeof ReportRoute
   '/score': typeof ScoreRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/tasks': typeof TasksRoute
@@ -89,7 +82,6 @@ export interface FileRoutesByTo {
   '/data': typeof DataRoute
   '/dev': typeof DevRoute
   '/history': typeof HistoryRoute
-  '/report': typeof ReportRoute
   '/score': typeof ScoreRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/tasks': typeof TasksRoute
@@ -102,7 +94,6 @@ export interface FileRoutesById {
   '/data': typeof DataRoute
   '/dev': typeof DevRoute
   '/history': typeof HistoryRoute
-  '/report': typeof ReportRoute
   '/score': typeof ScoreRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/tasks': typeof TasksRoute
@@ -116,7 +107,6 @@ export interface FileRouteTypes {
     | '/data'
     | '/dev'
     | '/history'
-    | '/report'
     | '/score'
     | '/sitemap.xml'
     | '/tasks'
@@ -128,7 +118,6 @@ export interface FileRouteTypes {
     | '/data'
     | '/dev'
     | '/history'
-    | '/report'
     | '/score'
     | '/sitemap.xml'
     | '/tasks'
@@ -140,7 +129,6 @@ export interface FileRouteTypes {
     | '/data'
     | '/dev'
     | '/history'
-    | '/report'
     | '/score'
     | '/sitemap.xml'
     | '/tasks'
@@ -153,7 +141,6 @@ export interface RootRouteChildren {
   DataRoute: typeof DataRoute
   DevRoute: typeof DevRoute
   HistoryRoute: typeof HistoryRoute
-  ReportRoute: typeof ReportRoute
   ScoreRoute: typeof ScoreRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TasksRoute: typeof TasksRoute
@@ -188,13 +175,6 @@ declare module '@tanstack/react-router' {
       path: '/score'
       fullPath: '/score'
       preLoaderRoute: typeof ScoreRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/report': {
-      id: '/report'
-      path: '/report'
-      fullPath: '/report'
-      preLoaderRoute: typeof ReportRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/history': {
@@ -241,7 +221,6 @@ const rootRouteChildren: RootRouteChildren = {
   DataRoute: DataRoute,
   DevRoute: DevRoute,
   HistoryRoute: HistoryRoute,
-  ReportRoute: ReportRoute,
   ScoreRoute: ScoreRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TasksRoute: TasksRoute,

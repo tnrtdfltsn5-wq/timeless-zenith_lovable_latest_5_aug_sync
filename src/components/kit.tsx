@@ -174,34 +174,3 @@ export function Pill({
     </button>
   );
 }
-
-export function Modal({
-  open,
-  onClose,
-  title,
-  subtitle,
-  children,
-}: {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  subtitle?: string;
-  children: ReactNode;
-}) {
-  if (!open) return null;
-  return (
-    <div
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-foreground/40 p-3 backdrop-blur-sm sm:items-center"
-      onClick={onClose}
-    >
-      <div
-        className="rise max-h-[80vh] w-full max-w-md overflow-y-auto rounded-3xl border border-border bg-popover p-5 shadow-[var(--shadow-soft)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="font-display text-lg font-extrabold">{title}</h3>
-        {subtitle ? <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p> : null}
-        <div className="mt-4">{children}</div>
-      </div>
-    </div>
-  );
-}

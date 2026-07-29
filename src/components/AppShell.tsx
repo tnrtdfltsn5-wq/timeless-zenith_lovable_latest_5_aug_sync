@@ -8,8 +8,6 @@ import {
   History,
   Gauge,
   Database,
-  FileText,
-
   SlidersHorizontal,
   Moon,
   Sun,
@@ -29,12 +27,10 @@ const PRIMARY_NAV = [
 
 const MORE_NAV = [
   { to: "/history", label: "History", icon: History },
-  { to: "/report", label: "Report", icon: FileText },
   { to: "/arena", label: "Downtime", icon: Gauge },
   { to: "/data", label: "Backup", icon: Database },
   { to: "/dev", label: "Engine", icon: SlidersHorizontal },
 ] as const;
-
 
 const THEMES = [
   { id: "indigo", label: "Nebula" },
@@ -119,7 +115,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <nav className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-[560px] border-t border-border bg-background/90 px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
         {moreOpen ? (
-          <div className="rise mb-2 grid grid-cols-5 gap-1.5 rounded-2xl bg-surface-2 p-2">
+          <div className="rise mb-2 grid grid-cols-4 gap-1.5 rounded-2xl bg-surface-2 p-2">
             {MORE_NAV.map((item) => (
               <NavItem key={item.to} {...item} active={pathname === item.to} />
             ))}
@@ -166,12 +162,7 @@ function NavItem({
   return (
     <Link
       to={to}
-      onClick={() => {
-        haptic();
-        if (to === "/timeline" && typeof window !== "undefined") {
-          window.sessionStorage.setItem("ft_scroll_current_slot", "1");
-        }
-      }}
+      onClick={() => haptic()}
       className={cn(
         "press flex flex-col items-center gap-1 rounded-xl py-1.5 text-[10px] font-semibold transition-colors",
         active ? "bg-accent text-primary" : "text-muted-foreground hover:text-foreground",

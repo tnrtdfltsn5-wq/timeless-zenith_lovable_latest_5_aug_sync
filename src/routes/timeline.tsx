@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { Ban, Plus, RotateCcw, Trash2, X } from "lucide-react";
-
+import { useState } from "react";
+import { Ban, RotateCcw, Trash2 } from "lucide-react";
 import {
   computeSlots,
   dayTotals,
@@ -10,7 +9,6 @@ import {
   getDay,
   todayKey,
   useAppState,
-  type DayData,
 } from "@/lib/store";
 import { Btn, Card, Progress, SectionTitle, inputClass, useHydrated } from "@/components/kit";
 import { haptic } from "@/lib/alarm";
@@ -44,22 +42,6 @@ function TimelinePage() {
   const slots = computeSlots(day, activeDate, now);
   const totals = dayTotals(day);
   const isToday = activeDate === todayKey();
-
-  // Auto-scroll to the current slot only when arriving via the bottom-tray icon
-  useEffect(() => {
-    if (!hydrated) return;
-    if (window.sessionStorage.getItem("ft_scroll_current_slot") !== "1") return;
-    window.sessionStorage.removeItem("ft_scroll_current_slot");
-    const el = document.getElementById(`slot-${new Date().getHours()}`);
-    if (el) {
-      const t = setTimeout(
-        () => el.scrollIntoView({ behavior: "smooth", block: "center" }),
-        120,
-      );
-      return () => clearTimeout(t);
-    }
-  }, [hydrated]);
-
 
   const elapsedMins = isToday ? now.getHours() * 60 + now.getMinutes() : 24 * 60;
   const activeSlots = slots.filter((s) => !s.disabled);
@@ -127,8 +109,6 @@ function TimelinePage() {
             return (
               <div
                 key={s.slot}
-                id={`slot-${s.hour}`}
-
                 className={cn(
                   "surface-card p-3",
                   ongoing && "glow-ring border-primary",
@@ -204,8 +184,22 @@ function TimelinePage() {
 
                 {!s.disabled ? <Progress className="mt-2" value={s.progress} /> : null}
 
-                <SlotPlanner slot={s.slot} activeDate={activeDate} day={day} />
-
+                <select
+                  value={s.assignment}
+                  onChange={(e) =>
+                    editDay(activeDate, (d) => {
+                      d.slotAssignments[s.slot] = e.target.value;
+                    })
+                  }
+                  className="mt-2 w-full rounded-lg border border-input bg-surface-2 px-2 py-1.5 text-xs"
+                >
+                  <option value="">— assign task —</option>
+                  {day.tasks.map((t) => (
+                    <option key={t.id} value={t.name}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
 
                 {s.logs.map((l) => (
                   <div
@@ -271,114 +265,4 @@ function Metric({
       </div>
     </div>
   );
-}
-
-function SlotPlanner({
-  slot,
-  activeDate,
-  day,
-}: {
-  slot: string;
-  activeDate: string;
-  day: DayData;
-}) {
-  const [todo, setTodo] = useState("");
-  const ids = day.slotTaskIds?.[slot] ?? [];
-  const todos = day.slotTodos?.[slot] ?? [];
-
-  return (
-    <div className="mt-2.5 space-y-2">
-      {/* Multiple tasks per slot */}
-      <div className="flex flex-wrap gap-1.5">
-        {day.tasks.length === 0 ? (
-          <span className="text-[11px] text-muted-foreground">No tasks to assign yet.</span>
-        ) : null}
-        {day.tasks.map((t) => {
-          const on = ids.includes(t.id);
-          return (
-            <button
-              key={t.id}
-              onClick={() => {
-                haptic();
-                editDay(activeDate, (d) => {
-                  const cur = d.slotTaskIds[slot] ?? [];
-                  d.slotTaskIds[slot] = on ? cur.filter((x) => x !== t.id) : [...cur, t.id];
-                });
-              }}
-              className={cn(
-                "press max-w-full truncate rounded-full px-2.5 py-1 text-[11px] font-semibold",
-                on
-                  ? "gradient-fill text-primary-foreground"
-                  : "bg-secondary text-muted-foreground",
-              )}
-            >
-              {t.name}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Slot note */}
-      <textarea
-        rows={1}
-        value={day.slotNotes?.[slot] ?? ""}
-        placeholder="Note for this slot…"
-        onChange={(e) =>
-          editDay(activeDate, (d) => {
-            d.slotNotes[slot] = e.target.value;
-          })
-        }
-        className="w-full resize-none rounded-lg border border-input bg-surface-2 px-2 py-1.5 text-xs"
-      />
-
-      {/* Slot to-dos */}
-      {todos.length ? (
-        <div className="space-y-1">
-          {todos.map((td) => (
-            <div
-              key={td.id}
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg bg-surface-2 px-2 py-1"
-            >
-              <span className="min-w-0 truncate text-[11px]">• {td.text}</span>
-              <button
-                onClick={() =>
-                  editDay(activeDate, (d) => {
-                    d.slotTodos[slot] = (d.slotTodos[slot] ?? []).filter((x) => x.id !== td.id);
-                  })
-                }
-                className="press shrink-0 text-muted-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-        <input
-          value={todo}
-          placeholder="Add to-do…"
-          onChange={(e) => setTodo(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") addTodo();
-          }}
-          className="w-full rounded-lg border border-input bg-surface-2 px-2 py-1.5 text-xs"
-        />
-        <Btn size="sm" variant="ghost" onClick={addTodo}>
-          <Plus className="h-3.5 w-3.5" />
-        </Btn>
-      </div>
-    </div>
-  );
-
-  function addTodo() {
-    const v = todo.trim();
-    if (!v) return;
-    haptic();
-    editDay(activeDate, (d) => {
-      d.slotTodos[slot] = [...(d.slotTodos[slot] ?? []), { id: Date.now(), text: v }];
-    });
-    setTodo("");
-  }
 }
