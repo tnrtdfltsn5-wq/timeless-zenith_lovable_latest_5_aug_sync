@@ -395,6 +395,33 @@ export function addSession(start: number, end: number, tag: Tag, desc: string) {
   });
 }
 
+/** Log an idle / away period as a break, split per hour slot. */
+export function addBreak(start: number, end: number, tag: BreakTag) {
+  const segs = splitSession(start, end);
+  if (!segs.length) return;
+  setState((s) => {
+    segs.forEach((seg, i) => {
+      if (!s.db[seg.dateKey]) s.db[seg.dateKey] = blankDay();
+      s.db[seg.dateKey].breaks.push({
+        id: Date.now() + i,
+        tag,
+        start: seg.start,
+        end: seg.end,
+        mins: seg.mins,
+        slotHour: seg.slotHour,
+      });
+    });
+  });
+}
+
+/** Fractional progress of a task: subtasks drive it when present. */
+export function taskProgress(t: Task): number {
+  const subs = t.subtasks ?? [];
+  if (subs.length) return subs.filter((s) => s.completed).length / subs.length;
+  return t.completed ? 1 : 0;
+}
+
+
 /* ---------------- Slot target distribution ---------------- */
 
 export interface SlotInfo {
