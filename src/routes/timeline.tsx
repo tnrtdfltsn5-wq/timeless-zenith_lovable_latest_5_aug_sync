@@ -126,6 +126,8 @@ function TimelinePage() {
             return (
               <div
                 key={s.slot}
+                id={`slot-${s.hour}`}
+
                 className={cn(
                   "surface-card p-3",
                   ongoing && "glow-ring border-primary",
