@@ -262,14 +262,19 @@ function normalize(raw: Partial<AppState>): AppState {
     const d = s.db[key];
     s.db[key] = {
       targetHours: d.targetHours ?? 6,
-      tasks: (d.tasks ?? []).map((t) => ({ ...t })),
+      tasks: (d.tasks ?? []).map((t) => ({ ...t, subtasks: (t.subtasks ?? []).map((x) => ({ ...x })) })),
       logs: (d.logs ?? []).map((l) => ({ ...l })),
+      breaks: (d.breaks ?? []).map((b) => ({ ...b })),
       slotTargets: d.slotTargets ?? {},
       slotAssignments: d.slotAssignments ?? {},
+      slotTaskIds: d.slotTaskIds ?? {},
+      slotNotes: d.slotNotes ?? {},
+      slotTodos: d.slotTodos ?? {},
       disabledSlots: d.disabledSlots ?? [],
       scoreAdjust: d.scoreAdjust ?? 0,
     };
   }
+
   return s;
 }
 
