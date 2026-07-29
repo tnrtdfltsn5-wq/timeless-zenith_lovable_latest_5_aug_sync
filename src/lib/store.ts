@@ -106,7 +106,10 @@ export interface TimerState {
   pomoPhase: "work" | "break";
   pomoRemainingSecs: number;
   pomoElapsedWorkSecs: number;
+  /** when the timer last stopped / the user last left — used to log idle as a break */
+  idleSince: number | null;
 }
+
 
 export interface AppState {
   db: Record<string, DayData>;
