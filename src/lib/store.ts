@@ -144,6 +144,8 @@ const defaultTimer: TimerState = {
   pomoPhase: "work",
   pomoRemainingSecs: 25 * 60,
   pomoElapsedWorkSecs: 0,
+  idleSince: null,
+
 };
 
 const defaultState: AppState = {
