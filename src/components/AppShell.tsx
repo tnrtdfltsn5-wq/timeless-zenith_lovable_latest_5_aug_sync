@@ -8,6 +8,8 @@ import {
   History,
   Gauge,
   Database,
+  FileText,
+
   SlidersHorizontal,
   Moon,
   Sun,
