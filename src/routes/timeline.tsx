@@ -44,6 +44,22 @@ function TimelinePage() {
   const totals = dayTotals(day);
   const isToday = activeDate === todayKey();
 
+  // Auto-scroll to the current slot only when arriving via the bottom-tray icon
+  useEffect(() => {
+    if (!hydrated) return;
+    if (window.sessionStorage.getItem("ft_scroll_current_slot") !== "1") return;
+    window.sessionStorage.removeItem("ft_scroll_current_slot");
+    const el = document.getElementById(`slot-${new Date().getHours()}`);
+    if (el) {
+      const t = setTimeout(
+        () => el.scrollIntoView({ behavior: "smooth", block: "center" }),
+        120,
+      );
+      return () => clearTimeout(t);
+    }
+  }, [hydrated]);
+
+
   const elapsedMins = isToday ? now.getHours() * 60 + now.getMinutes() : 24 * 60;
   const activeSlots = slots.filter((s) => !s.disabled);
   const availableMins = activeSlots.filter((s) => s.hour * 60 < elapsedMins).length * 60;
