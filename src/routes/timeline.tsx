@@ -201,22 +201,8 @@ function TimelinePage() {
 
                 {!s.disabled ? <Progress className="mt-2" value={s.progress} /> : null}
 
-                <select
-                  value={s.assignment}
-                  onChange={(e) =>
-                    editDay(activeDate, (d) => {
-                      d.slotAssignments[s.slot] = e.target.value;
-                    })
-                  }
-                  className="mt-2 w-full rounded-lg border border-input bg-surface-2 px-2 py-1.5 text-xs"
-                >
-                  <option value="">— assign task —</option>
-                  {day.tasks.map((t) => (
-                    <option key={t.id} value={t.name}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
+                <SlotPlanner slot={s.slot} activeDate={activeDate} day={day} />
+
 
                 {s.logs.map((l) => (
                   <div
