@@ -27,10 +27,12 @@ const PRIMARY_NAV = [
 
 const MORE_NAV = [
   { to: "/history", label: "History", icon: History },
+  { to: "/report", label: "Report", icon: FileText },
   { to: "/arena", label: "Downtime", icon: Gauge },
   { to: "/data", label: "Backup", icon: Database },
   { to: "/dev", label: "Engine", icon: SlidersHorizontal },
 ] as const;
+
 
 const THEMES = [
   { id: "indigo", label: "Nebula" },
