@@ -147,6 +147,21 @@ function TimerPage() {
   const todayScore = computeDayScore(state.db[key], state.settings.coeff);
   const { net } = lifetimeScores(state);
 
+  /* --- pending popups --- */
+  const [pendingStop, setPendingStop] = useState<{
+    start: number;
+    end: number;
+    secs: number;
+  } | null>(null);
+  const [stopDesc, setStopDesc] = useState("");
+  const [pendingBreak, setPendingBreak] = useState<{ start: number; end: number } | null>(null);
+
+  const lastActivityEnd = Math.max(
+    state.lastSession?.end ?? 0,
+    ...(day.breaks ?? []).map((b) => b.end),
+    ...day.logs.map((l) => l.end),
+  );
+
   /* --- actions --- */
   function start() {
     haptic(15);
@@ -154,6 +169,10 @@ function TimerPage() {
     requestNotificationPermission();
     void requestWakeLock();
     const t = Date.now();
+    // idle period since the last logged activity becomes a break
+    if (lastActivityEnd > 0 && t - lastActivityEnd >= 2 * 60000 && !timer.paused) {
+      setPendingBreak({ start: lastActivityEnd, end: t });
+    }
     setState((s) => {
       s.timer.running = true;
       s.timer.paused = false;
@@ -164,6 +183,7 @@ function TimerPage() {
         s.timer.pomoPhase = "work";
       }
     });
+    setAwaySince(null);
   }
 
   function pause() {
@@ -185,9 +205,6 @@ function TimerPage() {
     const elapsed = timer.startTime ? Math.floor((end - timer.startTime) / 1000) : 0;
     const totalSecs =
       timer.mode === "stopwatch" ? timer.accumulatedSeconds + elapsed : elapsedWork(timer, elapsed);
-    if (sessionStart && totalSecs > 30) {
-      addSession(sessionStart, end, timer.tag, "Timer session");
-    }
     releaseWakeLock();
     stopBackgroundAudio();
     setState((s) => {
@@ -200,7 +217,22 @@ function TimerPage() {
       s.timer.pomoElapsedWorkSecs = 0;
       s.timer.pomoRemainingSecs = s.settings.pomoWork * 60;
     });
+    if (sessionStart && totalSecs > 30) {
+      setStopDesc("");
+      setPendingStop({ start: sessionStart, end, secs: totalSecs });
+    }
   }
+
+  function confirmStop(tag: Tag) {
+    if (!pendingStop) return;
+    haptic(15);
+    addSession(pendingStop.start, pendingStop.end, tag, stopDesc.trim() || "Timer session");
+    setState((s) => {
+      s.timer.tag = tag;
+    });
+    setPendingStop(null);
+  }
+
 
   const display =
     timer.mode === "stopwatch" ? formatDuration(stopwatchSecs) : formatDuration(pomoRemaining);
