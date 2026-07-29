@@ -382,3 +382,12 @@
 @utility softpulse {
   animation: softpulse 2.2s ease-out infinite;
 }
+
+/* High-contrast CMYK accents used by the printable report */
+:root {
+  --ink-c: oklch(0.72 0.15 220);
+  --ink-m: oklch(0.62 0.25 350);
+  --ink-y: oklch(0.85 0.17 95);
+  --ink-k: oklch(0.16 0.01 265);
+  --ink-paper: oklch(1 0 0);
+}
