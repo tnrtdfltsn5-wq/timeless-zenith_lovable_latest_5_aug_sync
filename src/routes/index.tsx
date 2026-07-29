@@ -2,7 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Play, Pause, Square, Zap, Waves, Timer as TimerIcon, Hourglass, Plus } from "lucide-react";
 import {
+  addBreak,
   addSession,
+  BREAK_TAGS,
   computeDayScore,
   computeSlots,
   dayTotals,
@@ -27,7 +29,17 @@ import {
   requestWakeLock,
   stopBackgroundAudio,
 } from "@/lib/alarm";
-import { Btn, Card, Pill, Progress, Stat, useHydrated, useNow } from "@/components/kit";
+import {
+  Btn,
+  Card,
+  Modal,
+  Pill,
+  Progress,
+  Stat,
+  inputClass,
+  useHydrated,
+  useNow,
+} from "@/components/kit";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
