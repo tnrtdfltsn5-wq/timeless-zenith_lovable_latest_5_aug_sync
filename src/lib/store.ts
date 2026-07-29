@@ -543,3 +543,14 @@ export function lifetimeScores(s: AppState) {
   const spent = s.spends.reduce((a, b) => a + b.amount, 0);
   return { gross, month, spent, net: gross - spent };
 }
+
+/** Break minutes for a day, grouped by break tag. */
+export function breakTotals(day: DayData) {
+  const byTag: Record<string, number> = {};
+  let total = 0;
+  (day.breaks ?? []).forEach((b) => {
+    total += b.mins;
+    byTag[b.tag] = (byTag[b.tag] ?? 0) + b.mins;
+  });
+  return { total, byTag };
+}
