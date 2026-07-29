@@ -315,11 +315,16 @@ export function blankDay(): DayData {
     targetHours: 6,
     tasks: [],
     logs: [],
+    breaks: [],
     slotTargets: {},
     slotAssignments: {},
+    slotTaskIds: {},
+    slotNotes: {},
+    slotTodos: {},
     disabledSlots: [],
     scoreAdjust: 0,
   };
+
 }
 
 export function getDay(s: AppState, key: string): DayData {
