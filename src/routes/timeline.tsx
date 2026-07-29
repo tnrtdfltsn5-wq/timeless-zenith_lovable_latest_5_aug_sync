@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Ban, RotateCcw, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Ban, Plus, RotateCcw, Trash2, X } from "lucide-react";
+
 import {
   computeSlots,
   dayTotals,
