@@ -407,6 +407,97 @@ function TasksPage() {
   }
 }
 
+function SubtaskRow({
+  sub,
+  perSub,
+  onToggle,
+  onToggleStep,
+  onAddStep,
+  onRemoveStep,
+  onRemove,
+}: {
+  sub: SubTask;
+  perSub: number | null;
+  onToggle: () => void;
+  onToggleStep: (stepId: number) => void;
+  onAddStep: (value: string) => void;
+  onRemoveStep: (stepId: number) => void;
+  onRemove: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const steps = sub.steps ?? [];
+  const pct = subtaskProgress(sub) * 100;
+  const done = pct >= 100;
+  return (
+    <div className="rounded-xl bg-surface-2/60 p-2">
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onToggle}
+          className={cn(
+            "press grid h-5 w-5 shrink-0 place-items-center rounded-md border",
+            done
+              ? "border-transparent bg-success text-success-foreground"
+              : "border-border bg-surface-2",
+          )}
+        >
+          {done ? <Check className="h-3 w-3" /> : null}
+        </button>
+        <button onClick={() => setOpen((v) => !v)} className="min-w-0 flex-1 text-left">
+          <span className={cn("block truncate text-xs", done && "text-muted-foreground line-through")}>
+            {sub.name}
+            {perSub ? (
+              <span className="ml-1 text-[10px] text-muted-foreground">· {formatHM(perSub)}</span>
+            ) : null}
+          </span>
+          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            {steps.length
+              ? `${steps.filter((s) => s.completed).length}/${steps.length} steps · ${Math.round(pct)}%`
+              : "add steps"}
+          </span>
+        </button>
+        <button onClick={onRemove} className="press shrink-0 text-destructive">
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {steps.length ? <Progress className="mt-1.5" value={pct} tone="success" /> : null}
+
+      {open ? (
+        <div className="rise mt-2 space-y-1.5 border-t border-border pt-2 pl-7">
+          {steps.map((st) => (
+            <div key={st.id} className="flex items-center gap-2">
+              <button
+                onClick={() => onToggleStep(st.id)}
+                className={cn(
+                  "press grid h-4 w-4 shrink-0 place-items-center rounded border",
+                  st.completed
+                    ? "border-transparent bg-primary text-primary-foreground"
+                    : "border-border bg-surface",
+                )}
+              >
+                {st.completed ? <Check className="h-2.5 w-2.5" /> : null}
+              </button>
+              <span
+                className={cn(
+                  "min-w-0 flex-1 truncate text-[11px]",
+                  st.completed && "text-muted-foreground line-through",
+                )}
+              >
+                {st.name}
+              </span>
+              <button onClick={() => onRemoveStep(st.id)} className="press shrink-0 text-destructive">
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+          <SubtaskAdder placeholder="Add step (reading, writing…)" onAdd={onAddStep} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function SubtaskAdder({ onAdd }: { onAdd: (value: string) => void }) {
   const [value, setValue] = useState("");
   function submit() {
