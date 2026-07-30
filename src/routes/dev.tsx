@@ -35,25 +35,25 @@ export const Route = createFileRoute("/dev")({
 });
 
 const FIELDS: { key: keyof Coefficients; label: string; step: number; help: string }[] = [
-  { key: "pointsPerHour", label: "Points per logged hour", step: 10, help: "Base score rate." },
   {
-    key: "timeWeight",
-    label: "Time weight",
-    step: 0.05,
-    help: "Share of the multiplier driven by hours vs target.",
+    key: "flowRate",
+    label: "Flow State points / hour",
+    step: 10,
+    help: "Base rate for flow-state hours (formula: T×rate×(1+n)×S).",
   },
   {
-    key: "taskWeight",
-    label: "Task weight",
-    step: 0.05,
-    help: "Share of the multiplier driven by task completion.",
+    key: "shallowRate",
+    label: "Shallow Work points / hour",
+    step: 10,
+    help: "Base rate for shallow hours (formula: T×rate×(1+n/2)).",
   },
   {
-    key: "flowBonus",
-    label: "Flow-state bonus",
+    key: "lateFactor",
+    label: "S factor when overrunning",
     step: 0.05,
-    help: "Extra multiplier when all logged time is flow state.",
+    help: "Multiplier applied when a slotted task isn't finished inside its window.",
   },
+
   {
     key: "downtimeGraceMins",
     label: "Downtime grace (mins)",
