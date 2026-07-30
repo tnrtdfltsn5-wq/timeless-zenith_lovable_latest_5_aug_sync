@@ -87,8 +87,12 @@ function TasksPage() {
   function patch(id: number, fn: (t: Task) => void) {
     editDay(activeDate, (d) => {
       const t = d.tasks.find((x) => x.id === id);
-      if (t) fn(t);
+      if (t) {
+        fn(t);
+        syncTaskCompletion(t);
+      }
       d.tasks = orderTasks(d.tasks);
+
     });
   }
 
