@@ -547,25 +547,44 @@ export function dayTotals(day: DayData) {
   return { total, flow, shallow };
 }
 
+/** n = achieved tasks / target tasks (partial subtask + step progress counts). */
+export function taskRatioOf(day: DayData): number {
+  const tasks = day.tasks ?? [];
+  if (!tasks.length) return 0;
+  return tasks.reduce((a, t) => a + taskProgress(t), 0) / tasks.length;
+}
+
+/** S factor: 1 when every slotted task finished inside its window, else lateFactor. */
+export function slotFactorOf(day: DayData, coeff: Coefficients): number {
+  const slotted = (day.tasks ?? []).filter(
+    (t) => t.fromHour !== null && t.fromHour !== undefined,
+  );
+  if (!slotted.length) return 1;
+  const late = slotted.some((t) => {
+    const endHour = (t.toHour ?? t.fromHour!) + 1;
+    if (taskProgress(t) < 1) return true;
+    if (!t.completedAt) return false;
+    const d = new Date(t.completedAt);
+    return d.getHours() + d.getMinutes() / 60 > endHour;
+  });
+  return late ? coeff.lateFactor : 1;
+}
+
+/**
+ * Total daily points
+ *  = flowHours * flowRate * (1 + n) * S  +  shallowHours * shallowRate * (1 + n/2)
+ */
 export function computeDayScore(day: DayData | undefined, coeff: Coefficients): number {
   if (!day) return 0;
-  const { total, flow } = dayTotals(day);
-  const hours = total / 60;
-  const target = day.targetHours || 6;
-  const timeRatio = Math.min(1, target > 0 ? hours / target : 0);
-  const tasks = day.tasks ?? [];
-  const taskRatio = tasks.length
-    ? tasks.reduce((a, t) => a + taskProgress(t), 0) / tasks.length
-    : 1;
-
-  const n = Math.min(
-    1,
-    Math.max(0, coeff.timeWeight * timeRatio + coeff.taskWeight * taskRatio),
-  );
-  const flowRatio = total > 0 ? flow / total : 0;
-  const base = hours * coeff.pointsPerHour * n * (1 + coeff.flowBonus * flowRatio);
+  const { flow, shallow } = dayTotals(day);
+  const n = taskRatioOf(day);
+  const S = slotFactorOf(day, coeff);
+  const base =
+    (flow / 60) * coeff.flowRate * (1 + n) * S +
+    (shallow / 60) * coeff.shallowRate * (1 + n / 2);
   return base + (day.scoreAdjust ?? 0);
 }
+
 
 export function lifetimeScores(s: AppState) {
   let gross = 0;
