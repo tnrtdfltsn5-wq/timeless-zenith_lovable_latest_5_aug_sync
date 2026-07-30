@@ -137,10 +137,10 @@ export interface AppState {
 /* ---------------- Defaults ---------------- */
 
 export const DEFAULT_COEFF: Coefficients = {
-  pointsPerHour: 300,
-  timeWeight: 0.5,
-  taskWeight: 0.5,
-  flowBonus: 0.15,
+  flowRate: 200,
+  shallowRate: 100,
+  lateFactor: 0.8,
+
   minSlotTargetMins: 0,
   downtimeGraceMins: 45,
   dayStartHour: 0,
