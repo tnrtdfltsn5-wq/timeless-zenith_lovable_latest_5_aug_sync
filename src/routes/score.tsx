@@ -4,6 +4,7 @@ import { Check, Pencil, Trash2 } from "lucide-react";
 import {
   computeDayScore,
   formatHM,
+  formatDateDMY,
   dayTotals,
   getDay,
   lifetimeScores,
@@ -70,6 +71,44 @@ function ScorePage() {
 
       <Card>
         <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+          Daily score goal
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          This target drives the score progress bar on the Timer page.
+        </p>
+        <label className="mt-2 block text-xs font-semibold text-muted-foreground">
+          Score target (points)
+          <input
+            type="number"
+            min={0}
+            step={50}
+            value={state.settings.scoreTarget}
+            onChange={(e) =>
+              setState((s) => {
+                s.settings.scoreTarget = Math.max(0, Number(e.target.value) || 0);
+              })
+            }
+            className={cn(inputClass, "mt-1")}
+          />
+        </label>
+        <div className="mt-2 flex items-center justify-between text-xs font-semibold text-muted-foreground">
+          <span>Today's progress</span>
+          <span className="text-foreground">
+            {hydrated ? dayScore.toFixed(0) : "—"} / {state.settings.scoreTarget.toFixed(0)} pts
+          </span>
+        </div>
+        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-secondary">
+          <div
+            className="gradient-fill h-full rounded-full transition-[width] duration-500"
+            style={{
+              width: `${Math.min(100, (dayScore / (state.settings.scoreTarget || 1)) * 100)}%`,
+            }}
+          />
+        </div>
+      </Card>
+
+      <Card>
+        <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
           Edit a past day
         </div>
         <div className="mt-2 grid grid-cols-2 gap-3">
@@ -81,6 +120,9 @@ function ScorePage() {
               onChange={(e) => setActiveDate(e.target.value)}
               className={cn(inputClass, "mt-1")}
             />
+            <span className="mt-0.5 block text-[10px] text-muted-foreground">
+              {formatDateDMY(activeDate)}
+            </span>
           </label>
           <label className="text-xs font-semibold text-muted-foreground">
             Target hours
@@ -172,7 +214,7 @@ function ScorePage() {
             >
               <div className="min-w-0 text-xs">
                 <div className="truncate font-semibold">{s.reason}</div>
-                <div className="text-muted-foreground">{s.date}</div>
+                <div className="text-muted-foreground">{formatDateDMY(s.date)}</div>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 {editId === s.id ? (

@@ -1,20 +1,34 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Play, Pause, Square, Zap, Waves, Timer as TimerIcon, Hourglass, Plus } from "lucide-react";
+import {
+  Play,
+  Pause,
+  Square,
+  Zap,
+  Waves,
+  Timer as TimerIcon,
+  Hourglass,
+  Plus,
+  PartyPopper,
+} from "lucide-react";
 import {
   addBreak,
   addSession,
   BREAK_TAGS,
   computeDayScore,
+  computeSlotScore,
   computeSlots,
   dayTotals,
   formatClock,
+  formatDateDMY,
   formatDuration,
   formatHM,
   getDay,
   lifetimeScores,
   setState,
   slotKeyOfHour,
+  slotLabel12,
+  slotTaskNames,
   todayKey,
   useAppState,
   type Tag,
@@ -157,7 +171,10 @@ function TimerPage() {
       : 0;
 
   const todayScore = computeDayScore(state.db[key], state.settings.coeff);
+  const scoreTarget = state.settings.scoreTarget || 1;
+  const scorePct = Math.min(100, (todayScore / scoreTarget) * 100);
   const { net } = lifetimeScores(state);
+  const slotTaskList = slotTaskNames(currentSlotKey, day);
 
   /* --- pending popups --- */
   const [pendingStop, setPendingStop] = useState<{
@@ -167,6 +184,21 @@ function TimerPage() {
   } | null>(null);
   const [stopDesc, setStopDesc] = useState("");
   const [pendingBreak, setPendingBreak] = useState<{ start: number; end: number } | null>(null);
+  const [celebrate, setCelebrate] = useState<string | null>(null);
+
+  // fire the celebration popup the moment the ongoing slot hits its target
+  const prevSlotDone = useRef(false);
+  useEffect(() => {
+    if (!hydrated) return;
+    const done = !currentSlot.disabled && currentSlot.targetMins > 0 && slotLoggedLive >= currentSlot.targetMins;
+    if (done && !prevSlotDone.current) {
+      const earned = computeSlotScore(currentSlotKey, currentSlot.logs, day, state.settings.coeff);
+      setCelebrate(`${slotLabel12(currentSlotKey)} target hit! +${Math.round(earned)} pts`);
+      haptic([40, 60, 40, 60, 80]);
+    }
+    prevSlotDone.current = done;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slotLoggedLive, currentSlot.targetMins, hydrated]);
 
   const lastActivityEnd = Math.max(
     state.lastSession?.end ?? 0,
@@ -280,6 +312,20 @@ function TimerPage() {
           tone="success"
         />
       </div>
+
+      {/* Score target bar */}
+      <Card>
+        <div className="flex justify-between text-xs font-semibold text-muted-foreground">
+          <span>Score vs daily goal</span>
+          <span className="text-foreground">
+            {hydrated ? todayScore.toFixed(0) : "—"} / {scoreTarget.toFixed(0)} pts
+          </span>
+        </div>
+        <Progress className="mt-2" value={scorePct} tone="primary" />
+        <div className="mt-1 text-[11px] text-muted-foreground">
+          {Math.round(scorePct)}% of daily score goal · set your target on the Score page
+        </div>
+      </Card>
 
       {/* Timer */}
       <Card glow className="text-center">
@@ -418,7 +464,9 @@ function TimerPage() {
             <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
               Ongoing slot
             </div>
-            <div className="truncate font-display text-base font-bold">{currentSlotKey}</div>
+            <div className="truncate font-display text-base font-bold">
+              {slotLabel12(currentSlotKey)}
+            </div>
           </div>
           <span className="shrink-0 rounded-full bg-accent px-2.5 py-1 text-[11px] font-bold text-accent-foreground">
             {currentSlot.disabled ? "Reserved / off" : `${Math.round(slotPct)}%`}
@@ -435,7 +483,7 @@ function TimerPage() {
         <div className="mt-3 rounded-xl bg-surface-2 p-3 text-xs">
           <span className="font-semibold text-muted-foreground">Assigned task: </span>
           <span className="font-semibold">
-            {currentSlot.assignment || "No task assigned to this slot"}
+            {slotTaskList.length ? slotTaskList.join(" · ") : "No task assigned to this slot"}
           </span>
         </div>
       </Card>
@@ -569,6 +617,28 @@ function TimerPage() {
           Skip
         </button>
       </Modal>
+
+      {/* Slot target celebration popup */}
+      {celebrate ? (
+        <div
+          className="fixed inset-0 z-[70] grid place-items-center bg-foreground/40 backdrop-blur-sm"
+          onClick={() => setCelebrate(null)}
+        >
+          <div className="celebrate-card rise mx-4 w-full max-w-sm rounded-3xl border border-border bg-popover p-8 text-center shadow-[var(--shadow-glow)]">
+            <div className="celebrate-icon mx-auto mb-3 grid h-16 w-16 place-items-center rounded-2xl gradient-fill text-primary-foreground">
+              <PartyPopper className="h-8 w-8" />
+            </div>
+            <h3 className="gradient-text font-display text-2xl font-extrabold">Slot complete!</h3>
+            <p className="mt-2 text-sm font-semibold text-foreground">{celebrate}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              You hit the target pace for this slot. Keep the momentum going.
+            </p>
+            <Btn variant="primary" className="mt-5 w-full" onClick={() => setCelebrate(null)}>
+              Keep going
+            </Btn>
+          </div>
+        </div>
+      ) : null}
     </div>
 
   );
@@ -733,7 +803,7 @@ function ManualLogger() {
                     onClick={() => logIntoSlot(s.hour)}
                     className="rounded-xl border border-input bg-surface-2 px-2 py-2 text-center text-xs font-semibold text-foreground transition hover:border-primary"
                   >
-                    <div>{s.slot}</div>
+                    <div>{slotLabel12(s.slot)}</div>
                     <div className="text-[10px] font-medium text-muted-foreground">
                       {formatHM(s.loggedMins)}
                     </div>

@@ -3,6 +3,7 @@ import {
   computeDayScore,
   dayTotals,
   formatHM,
+  formatDateDMY,
   useAppState,
 } from "@/lib/store";
 import { Card, SectionTitle, useHydrated } from "@/components/kit";
@@ -46,7 +47,7 @@ function HistoryPage() {
             <Card key={k} className="p-3">
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
                 <div className="min-w-0">
-                  <div className="truncate font-display text-sm font-bold">{k}</div>
+                  <div className="truncate font-display text-sm font-bold">{formatDateDMY(k)}</div>
                   <div className="truncate text-[11px] text-muted-foreground">
                     Flow {formatHM(totals.flow)} · Shallow {formatHM(totals.shallow)} · Tasks {done}/
                     {day.tasks.length}

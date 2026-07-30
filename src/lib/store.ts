@@ -76,6 +76,8 @@ export interface DayData {
   slotTodos: Record<string, SlotTodo[]>;
   disabledSlots: string[];
   scoreAdjust?: number;
+  /** manual per-slot score adjustments keyed by slot label */
+  slotScoreAdjust?: Record<string, number>;
 }
 
 
@@ -107,6 +109,8 @@ export interface Settings {
   pomoBreak: number;
   soundOn: boolean;
   coeff: Coefficients;
+  /** daily score goal — drives the progress bar on the timer page */
+  scoreTarget: number;
 }
 
 export interface TimerState {
@@ -172,6 +176,7 @@ const defaultState: AppState = {
     pomoBreak: 5,
     soundOn: true,
     coeff: { ...DEFAULT_COEFF },
+    scoreTarget: 1200,
   },
   timer: { ...defaultTimer },
   lastSession: null,
@@ -193,6 +198,32 @@ export function todayKey() {
 
 export function slotKeyOfHour(h: number) {
   return `${String(h).padStart(2, "0")}:00 - ${String(h + 1).padStart(2, "0")}:00`;
+}
+
+/** 12-hour slot label, e.g. 6 -> "6AM", 13 -> "1PM". */
+export function hourLabel(h: number): string {
+  const ampm = h < 12 ? "AM" : "PM";
+  const v = h % 12 === 0 ? 12 : h % 12;
+  return `${v}${ampm}`;
+}
+
+/** Friendly slot range, e.g. "6AM – 7AM". */
+export function slotLabel12(slot: string): string {
+  const h = slotHourNumber(slot);
+  return `${hourLabel(h)} – ${hourLabel(h + 1)}`;
+}
+
+/** Date formatted as dd/mm/yyyy from a dateKey (yyyy-mm-dd) or Date. */
+export function formatDateDMY(d: Date | number | string): string {
+  const dt =
+    typeof d === "string"
+      ? new Date(`${d}T12:00:00`)
+      : typeof d === "number"
+        ? new Date(d)
+        : d;
+  const dd = String(dt.getDate()).padStart(2, "0");
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${dt.getFullYear()}`;
 }
 
 export const ALL_SLOTS = Array.from({ length: 24 }, (_, h) => slotKeyOfHour(h));
@@ -267,6 +298,7 @@ function normalize(raw: Partial<AppState>): AppState {
       ...defaultState.settings,
       ...(raw.settings ?? {}),
       coeff: { ...DEFAULT_COEFF, ...(raw.settings?.coeff ?? {}) },
+      scoreTarget: raw.settings?.scoreTarget ?? 1200,
     },
     timer: { ...defaultTimer, ...(raw.timer ?? {}) },
     db: raw.db ?? {},
@@ -290,6 +322,7 @@ function normalize(raw: Partial<AppState>): AppState {
       slotTodos: d.slotTodos ?? {},
       disabledSlots: d.disabledSlots ?? [],
       scoreAdjust: d.scoreAdjust ?? 0,
+      slotScoreAdjust: d.slotScoreAdjust ?? {},
     };
   }
 
@@ -341,6 +374,7 @@ export function blankDay(): DayData {
     slotTodos: {},
     disabledSlots: [],
     scoreAdjust: 0,
+    slotScoreAdjust: {},
   };
 
 }
@@ -537,6 +571,44 @@ export function computeSlots(day: DayData, dateKey: string, now: Date): SlotInfo
   });
 }
 
+/* ---------------- Per-slot n factor ---------------- */
+
+/**
+ * Per-slot n-factor with exception rules:
+ *  - slots 6–7, 7–8, 8–9 share n = 2
+ *  - first 5 slots since 6AM share n = 1
+ *  - otherwise n = day task ratio (default scoring)
+ */
+export function slotNFactor(slot: string, day: DayData): number {
+  const h = slotHourNumber(slot);
+  const morningSlots = [6, 7, 8];
+  if (morningSlots.includes(h)) return 2;
+  const firstFive = [6, 7, 8, 9, 10];
+  if (firstFive.includes(h)) return 1;
+  return taskRatioOf(day);
+}
+
+/** Score for a single slot (using its own n-factor). */
+export function computeSlotScore(
+  slot: string,
+  logs: LogEntry[],
+  day: DayData,
+  coeff: Coefficients,
+): number {
+  let flow = 0;
+  let shallow = 0;
+  logs.forEach((l) => {
+    if (l.tag === "Flow State") flow += l.durationMins;
+    else shallow += l.durationMins;
+  });
+  const n = slotNFactor(slot, day);
+  const S = slotFactorOf(day, coeff);
+  const base =
+    (flow / 60) * coeff.flowRate * (1 + n) * S +
+    (shallow / 60) * coeff.shallowRate * (1 + n / 2);
+  return base + (day.slotScoreAdjust?.[slot] ?? 0);
+}
+
 /* ---------------- Scoring ---------------- */
 
 export function dayTotals(day: DayData) {
@@ -601,6 +673,19 @@ export function lifetimeScores(s: AppState) {
   }
   const spent = s.spends.reduce((a, b) => a + b.amount, 0);
   return { gross, month, spent, net: gross - spent };
+}
+
+/* ---------------- Cross-page slot task names ---------------- */
+
+/** Unified task names attached to a slot, used on timer / tasks / timeline pages. */
+export function slotTaskNames(slot: string, day: DayData): string[] {
+  const ids = day.slotTaskIds?.[slot] ?? [];
+  const names = ids
+    .map((id) => day.tasks.find((t) => t.id === id))
+    .filter((t): t is Task => Boolean(t))
+    .map((t) => t.name);
+  if (day.slotAssignments?.[slot]) names.unshift(day.slotAssignments[slot]);
+  return names;
 }
 
 /** Break minutes for a day, grouped by break tag. */

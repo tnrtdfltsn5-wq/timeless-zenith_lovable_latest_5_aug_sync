@@ -7,7 +7,11 @@ import {
   dayTotals,
   editDay,
   formatHM,
+  formatDateDMY,
   getDay,
+  slotLabel12,
+  slotNFactor,
+  slotTaskNames,
   todayKey,
   useAppState,
   type DayData,
@@ -71,12 +75,15 @@ function TimelinePage() {
     <div className="space-y-4">
       <SectionTitle
         right={
-          <input
-            type="date"
-            value={activeDate}
-            onChange={(e) => setActiveDate(e.target.value)}
-            className={cn(inputClass, "w-auto py-1.5 text-xs")}
-          />
+          <div className="flex flex-col items-end gap-0.5">
+            <input
+              type="date"
+              value={activeDate}
+              onChange={(e) => setActiveDate(e.target.value)}
+              className={cn(inputClass, "w-auto py-1.5 text-xs")}
+            />
+            <span className="text-[10px] text-muted-foreground">{formatDateDMY(activeDate)}</span>
+          </div>
         }
       >
         Timeline
@@ -138,7 +145,7 @@ function TimelinePage() {
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
                   <div className="min-w-0">
                     <div className="truncate font-display text-sm font-bold">
-                      {s.slot}
+                      {slotLabel12(s.slot)}
                       {ongoing ? (
                         <span className="ml-2 rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-accent-foreground">
                           ongoing
@@ -148,7 +155,7 @@ function TimelinePage() {
                     <div className="truncate text-[11px] text-muted-foreground">
                       {s.disabled
                         ? "Excluded from distribution"
-                        : `${formatHM(s.loggedMins)} of ${formatHM(s.targetMins)}`}
+                        : `${formatHM(s.loggedMins)} of ${formatHM(s.targetMins)} · n=${slotNFactor(s.slot, day)}`}
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5">
@@ -204,6 +211,9 @@ function TimelinePage() {
 
                 {!s.disabled ? <Progress className="mt-2" value={s.progress} /> : null}
 
+                {/* Synced task names for this slot */}
+                {!s.disabled ? <SlotTaskLine slot={s.slot} day={day} /> : null}
+
                 <SlotPlanner slot={s.slot} activeDate={activeDate} day={day} />
 
 
@@ -250,6 +260,17 @@ function TimelinePage() {
       >
         Recalculate all slot targets
       </Btn>
+    </div>
+  );
+}
+
+function SlotTaskLine({ slot, day }: { slot: string; day: DayData }) {
+  const names = slotTaskNames(slot, day);
+  if (!names.length) return null;
+  return (
+    <div className="mt-1.5 truncate text-[11px]">
+      <span className="font-semibold text-muted-foreground">Tasks: </span>
+      <span className="font-semibold text-foreground">{names.join(" · ")}</span>
     </div>
   );
 }

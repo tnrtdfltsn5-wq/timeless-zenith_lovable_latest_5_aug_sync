@@ -4,9 +4,12 @@ import {
   DEFAULT_COEFF,
   TAGS,
   computeDayScore,
+  computeSlotScore,
   computeSlots,
   dayTotals,
   slotFactorOf,
+  slotLabel12,
+  slotNFactor,
   taskRatioOf,
 
   formatHM,
@@ -187,8 +190,29 @@ function DevPage() {
           <Row k="task ratio n" v={taskRatioOf(day).toFixed(3)} />
           <Row k="slot factor S" v={slotFactorOf(day, coeff).toFixed(2)} />
           <Row k="day points" v={Math.round(computeDayScore(day, coeff)).toLocaleString()} />
+          <Row k="score goal" v={state.settings.scoreTarget.toFixed(0)} />
 
         </dl>
+      </Card>
+
+      <Card>
+        <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+          Per-slot n-factor & score (today)
+        </div>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Exception rules: 6–9AM slots use n=2, first 5 slots from 6AM use n=1, others use the day task ratio.
+        </p>
+        <div className="mt-2 max-h-64 overflow-y-auto space-y-1 font-mono text-[11px]">
+          {activeSlots.map((s) => (
+            <Row
+              key={s.slot}
+              k={slotLabel12(s.slot)}
+              v={`n=${slotNFactor(s.slot, day)} · ${Math.round(
+                computeSlotScore(s.slot, s.logs, day, coeff),
+              )} pts`}
+            />
+          ))}
+        </div>
       </Card>
     </div>
   );

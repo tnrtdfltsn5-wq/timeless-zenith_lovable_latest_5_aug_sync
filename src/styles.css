@@ -384,6 +384,44 @@
   animation: softpulse 2.2s ease-out infinite;
 }
 
+/* Celebration popup — slot target hit */
+@keyframes celebrate-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.7) translateY(20px);
+  }
+  55% {
+    transform: scale(1.06) translateY(-4px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes celebrate-burst {
+  0% {
+    transform: scale(0) rotate(-20deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.25) rotate(10deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@utility celebrate-card {
+  animation: celebrate-pop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+@utility celebrate-icon {
+  animation: celebrate-burst 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
 /* High-contrast CMYK accents used by the printable report */
 :root {
   --ink-c: oklch(0.72 0.15 220);

@@ -14,9 +14,11 @@ import {
 import {
   ALL_SLOTS,
   editDay,
+  formatDateDMY,
   formatHM,
   getDay,
   slotHourNumber,
+  slotLabel12,
   subtaskProgress,
   syncTaskCompletion,
   taskProgress,
@@ -110,6 +112,9 @@ function TasksPage() {
               onChange={(e) => setActiveDate(e.target.value)}
               className={cn(inputClass, "mt-1 text-foreground")}
             />
+            <span className="mt-0.5 block text-[10px] text-muted-foreground">
+              {formatDateDMY(activeDate)}
+            </span>
           </label>
           <label className="text-xs font-semibold text-muted-foreground">
             Target hours
@@ -218,8 +223,7 @@ function TasksPage() {
                     {t.fromHour !== null && t.fromHour !== undefined ? (
                       <span className="inline-flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        {String(t.fromHour).padStart(2, "0")}:00–
-                        {String((t.toHour ?? t.fromHour) + 1).padStart(2, "0")}:00
+                        {slotLabel12(`${String(t.fromHour).padStart(2, "0")}:00 - ${String((t.toHour ?? t.fromHour) + 1).padStart(2, "0")}:00`)}
                       </span>
                     ) : null}
                     {t.comment ? <MessageSquare className="h-3 w-3" /> : null}
@@ -330,7 +334,7 @@ function TasksPage() {
                         <option value="">—</option>
                         {ALL_SLOTS.map((s) => (
                           <option key={s} value={slotHourNumber(s)}>
-                            {s}
+                            {slotLabel12(s)}
                           </option>
                         ))}
                       </select>
@@ -349,7 +353,7 @@ function TasksPage() {
                         <option value="">—</option>
                         {ALL_SLOTS.map((s) => (
                           <option key={s} value={slotHourNumber(s)}>
-                            {s}
+                            {slotLabel12(s)}
                           </option>
                         ))}
                       </select>
@@ -370,6 +374,9 @@ function TasksPage() {
                       />
                     </label>
                   </div>
+
+                  {/* Slots this task is assigned to (synced across pages) */}
+                  <AssignedSlots taskId={t.id} day={day} />
 
                   {/* Comment */}
                   <label className="block text-[11px] font-semibold text-muted-foreground">
@@ -542,6 +549,29 @@ function IconBtn({
     >
       {children}
     </button>
+  );
+}
+
+/** Shows every slot (across all pages) this task is attached to. */
+function AssignedSlots({ taskId, day }: { taskId: number; day: ReturnType<typeof getDay> }) {
+  const assigned = ALL_SLOTS.filter((s) => (day.slotTaskIds?.[s] ?? []).includes(taskId));
+  if (!assigned.length) return null;
+  return (
+    <div className="rounded-xl bg-accent/40 p-2.5 text-xs">
+      <div className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
+        Assigned to slots (synced everywhere)
+      </div>
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
+        {assigned.map((s) => (
+          <span
+            key={s}
+            className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold"
+          >
+            {slotLabel12(s)}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 
