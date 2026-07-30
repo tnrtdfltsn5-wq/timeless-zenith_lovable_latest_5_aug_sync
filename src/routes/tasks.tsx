@@ -17,11 +17,15 @@ import {
   formatHM,
   getDay,
   slotHourNumber,
+  subtaskProgress,
+  syncTaskCompletion,
   taskProgress,
   todayKey,
   useAppState,
+  type SubTask,
   type Task,
 } from "@/lib/store";
+
 import { Btn, Card, Progress, SectionTitle, inputClass, useHydrated } from "@/components/kit";
 import { haptic } from "@/lib/alarm";
 import { cn } from "@/lib/utils";
