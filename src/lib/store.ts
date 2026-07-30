@@ -428,12 +428,34 @@ export function addBreak(start: number, end: number, tag: BreakTag) {
   });
 }
 
-/** Fractional progress of a task: subtasks drive it when present. */
+/** Fractional progress of a subtask: steps drive it when present. */
+export function subtaskProgress(s: SubTask): number {
+  const steps = s.steps ?? [];
+  if (steps.length) return steps.filter((x) => x.completed).length / steps.length;
+  return s.completed ? 1 : 0;
+}
+
+/** Fractional progress of a task: subtasks (and their steps) drive it when present. */
 export function taskProgress(t: Task): number {
   const subs = t.subtasks ?? [];
-  if (subs.length) return subs.filter((s) => s.completed).length / subs.length;
+  if (subs.length) return subs.reduce((a, s) => a + subtaskProgress(s), 0) / subs.length;
   return t.completed ? 1 : 0;
 }
+
+/** Keeps completed / completedAt in sync with subtask + step progress. */
+export function syncTaskCompletion(t: Task) {
+  (t.subtasks ?? []).forEach((s) => {
+    if ((s.steps ?? []).length) s.completed = subtaskProgress(s) >= 1;
+  });
+  const p = taskProgress(t);
+  if ((t.subtasks ?? []).length) t.completed = p >= 1;
+  if (t.completed) {
+    if (!t.completedAt) t.completedAt = Date.now();
+  } else {
+    t.completedAt = null;
+  }
+}
+
 
 
 /* ---------------- Slot target distribution ---------------- */
