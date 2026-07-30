@@ -3,8 +3,12 @@ import { RotateCcw } from "lucide-react";
 import {
   DEFAULT_COEFF,
   TAGS,
+  computeDayScore,
   computeSlots,
   dayTotals,
+  slotFactorOf,
+  taskRatioOf,
+
   formatHM,
   getDay,
   setState,
