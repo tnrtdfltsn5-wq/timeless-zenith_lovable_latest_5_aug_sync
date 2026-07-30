@@ -240,14 +240,46 @@
 
   html {
     -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    touch-action: pan-y;
+    overflow-x: hidden;
   }
 
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    overscroll-behavior-y: none;
+    overscroll-behavior: none;
+    overflow-x: hidden;
+    max-width: 100vw;
+    touch-action: pan-y;
   }
+
+  @media print {
+    @page {
+      size: A4;
+      margin: 12mm;
+    }
+    html,
+    body {
+      background: #fff !important;
+      color: #000 !important;
+    }
+    .no-print {
+      display: none !important;
+    }
+    .print-sheet {
+      box-shadow: none !important;
+      border: 0 !important;
+      padding: 0 !important;
+      max-width: none !important;
+    }
+    .print-block {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+  }
+
 
   h1,
   h2,
@@ -349,4 +381,13 @@
 
 @utility softpulse {
   animation: softpulse 2.2s ease-out infinite;
+}
+
+/* High-contrast CMYK accents used by the printable report */
+:root {
+  --ink-c: oklch(0.72 0.15 220);
+  --ink-m: oklch(0.62 0.25 350);
+  --ink-y: oklch(0.85 0.17 95);
+  --ink-k: oklch(0.16 0.01 265);
+  --ink-paper: oklch(1 0 0);
 }
