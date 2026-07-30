@@ -241,19 +241,20 @@
   html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
-    touch-action: pan-y;
     overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    overscroll-behavior: none;
     overflow-x: hidden;
-    max-width: 100vw;
-    touch-action: pan-y;
+    overflow-y: visible;
+    touch-action: manipulation;
   }
+
 
   @media print {
     @page {
