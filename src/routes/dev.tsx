@@ -180,17 +180,10 @@ function DevPage() {
             k="auto target per slot"
             v={formatHM(future.length ? future.reduce((a, s) => a + s.targetMins, 0) / future.length : 0)}
           />
-          <Row
-            k="multiplier n"
-            v={(
-              coeff.timeWeight *
-                Math.min(1, totals.total / Math.max(1, (day.targetHours || 1) * 60)) +
-              coeff.taskWeight *
-                (day.tasks.length
-                  ? day.tasks.filter((t) => t.completed).length / day.tasks.length
-                  : 1)
-            ).toFixed(3)}
-          />
+          <Row k="task ratio n" v={taskRatioOf(day).toFixed(3)} />
+          <Row k="slot factor S" v={slotFactorOf(day, coeff).toFixed(2)} />
+          <Row k="day points" v={Math.round(computeDayScore(day, coeff)).toLocaleString()} />
+
         </dl>
       </Card>
     </div>
