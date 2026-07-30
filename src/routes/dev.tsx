@@ -3,8 +3,12 @@ import { RotateCcw } from "lucide-react";
 import {
   DEFAULT_COEFF,
   TAGS,
+  computeDayScore,
   computeSlots,
   dayTotals,
+  slotFactorOf,
+  taskRatioOf,
+
   formatHM,
   getDay,
   setState,
@@ -35,25 +39,25 @@ export const Route = createFileRoute("/dev")({
 });
 
 const FIELDS: { key: keyof Coefficients; label: string; step: number; help: string }[] = [
-  { key: "pointsPerHour", label: "Points per logged hour", step: 10, help: "Base score rate." },
   {
-    key: "timeWeight",
-    label: "Time weight",
-    step: 0.05,
-    help: "Share of the multiplier driven by hours vs target.",
+    key: "flowRate",
+    label: "Flow State points / hour",
+    step: 10,
+    help: "Base rate for flow-state hours (formula: T×rate×(1+n)×S).",
   },
   {
-    key: "taskWeight",
-    label: "Task weight",
-    step: 0.05,
-    help: "Share of the multiplier driven by task completion.",
+    key: "shallowRate",
+    label: "Shallow Work points / hour",
+    step: 10,
+    help: "Base rate for shallow hours (formula: T×rate×(1+n/2)).",
   },
   {
-    key: "flowBonus",
-    label: "Flow-state bonus",
+    key: "lateFactor",
+    label: "S factor when overrunning",
     step: 0.05,
-    help: "Extra multiplier when all logged time is flow state.",
+    help: "Multiplier applied when a slotted task isn't finished inside its window.",
   },
+
   {
     key: "downtimeGraceMins",
     label: "Downtime grace (mins)",
@@ -180,17 +184,10 @@ function DevPage() {
             k="auto target per slot"
             v={formatHM(future.length ? future.reduce((a, s) => a + s.targetMins, 0) / future.length : 0)}
           />
-          <Row
-            k="multiplier n"
-            v={(
-              coeff.timeWeight *
-                Math.min(1, totals.total / Math.max(1, (day.targetHours || 1) * 60)) +
-              coeff.taskWeight *
-                (day.tasks.length
-                  ? day.tasks.filter((t) => t.completed).length / day.tasks.length
-                  : 1)
-            ).toFixed(3)}
-          />
+          <Row k="task ratio n" v={taskRatioOf(day).toFixed(3)} />
+          <Row k="slot factor S" v={slotFactorOf(day, coeff).toFixed(2)} />
+          <Row k="day points" v={Math.round(computeDayScore(day, coeff)).toLocaleString()} />
+
         </dl>
       </Card>
     </div>

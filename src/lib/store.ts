@@ -28,10 +28,18 @@ export interface BreakEntry {
   slotHour: string;
 }
 
+export interface Step {
+  id: number;
+  name: string;
+  completed: boolean;
+}
+
 export interface SubTask {
   id: number;
   name: string;
   completed: boolean;
+  /** granular modules (reading / writing / memorisation …) */
+  steps?: Step[];
 }
 
 export interface Task {
@@ -45,7 +53,10 @@ export interface Task {
   toHour?: number | null;
   /** planned minutes for the whole task, split evenly across subtasks */
   plannedMins?: number | null;
+  /** timestamp when the task first reached 100% */
+  completedAt?: number | null;
 }
+
 
 export interface SlotTodo {
   id: number;
@@ -76,15 +87,18 @@ export interface Spend {
 }
 
 export interface Coefficients {
-  pointsPerHour: number;
-  timeWeight: number;
-  taskWeight: number;
-  flowBonus: number;
+  /** points per hour of Flow State time */
+  flowRate: number;
+  /** points per hour of Shallow Work time */
+  shallowRate: number;
+  /** S factor applied when a slotted task overruns its window */
+  lateFactor: number;
   minSlotTargetMins: number;
   downtimeGraceMins: number;
   dayStartHour: number;
   dayEndHour: number;
 }
+
 
 export interface Settings {
   theme: string;
@@ -123,10 +137,10 @@ export interface AppState {
 /* ---------------- Defaults ---------------- */
 
 export const DEFAULT_COEFF: Coefficients = {
-  pointsPerHour: 300,
-  timeWeight: 0.5,
-  taskWeight: 0.5,
-  flowBonus: 0.15,
+  flowRate: 200,
+  shallowRate: 100,
+  lateFactor: 0.8,
+
   minSlotTargetMins: 0,
   downtimeGraceMins: 45,
   dayStartHour: 0,
@@ -262,7 +276,11 @@ function normalize(raw: Partial<AppState>): AppState {
     const d = s.db[key];
     s.db[key] = {
       targetHours: d.targetHours ?? 6,
-      tasks: (d.tasks ?? []).map((t) => ({ ...t, subtasks: (t.subtasks ?? []).map((x) => ({ ...x })) })),
+      tasks: (d.tasks ?? []).map((t) => ({
+        ...t,
+        subtasks: (t.subtasks ?? []).map((x) => ({ ...x, steps: (x.steps ?? []).map((s) => ({ ...s })) })),
+      })),
+
       logs: (d.logs ?? []).map((l) => ({ ...l })),
       breaks: (d.breaks ?? []).map((b) => ({ ...b })),
       slotTargets: d.slotTargets ?? {},
@@ -414,12 +432,34 @@ export function addBreak(start: number, end: number, tag: BreakTag) {
   });
 }
 
-/** Fractional progress of a task: subtasks drive it when present. */
+/** Fractional progress of a subtask: steps drive it when present. */
+export function subtaskProgress(s: SubTask): number {
+  const steps = s.steps ?? [];
+  if (steps.length) return steps.filter((x) => x.completed).length / steps.length;
+  return s.completed ? 1 : 0;
+}
+
+/** Fractional progress of a task: subtasks (and their steps) drive it when present. */
 export function taskProgress(t: Task): number {
   const subs = t.subtasks ?? [];
-  if (subs.length) return subs.filter((s) => s.completed).length / subs.length;
+  if (subs.length) return subs.reduce((a, s) => a + subtaskProgress(s), 0) / subs.length;
   return t.completed ? 1 : 0;
 }
+
+/** Keeps completed / completedAt in sync with subtask + step progress. */
+export function syncTaskCompletion(t: Task) {
+  (t.subtasks ?? []).forEach((s) => {
+    if ((s.steps ?? []).length) s.completed = subtaskProgress(s) >= 1;
+  });
+  const p = taskProgress(t);
+  if ((t.subtasks ?? []).length) t.completed = p >= 1;
+  if (t.completed) {
+    if (!t.completedAt) t.completedAt = Date.now();
+  } else {
+    t.completedAt = null;
+  }
+}
+
 
 
 /* ---------------- Slot target distribution ---------------- */
@@ -511,25 +551,44 @@ export function dayTotals(day: DayData) {
   return { total, flow, shallow };
 }
 
+/** n = achieved tasks / target tasks (partial subtask + step progress counts). */
+export function taskRatioOf(day: DayData): number {
+  const tasks = day.tasks ?? [];
+  if (!tasks.length) return 0;
+  return tasks.reduce((a, t) => a + taskProgress(t), 0) / tasks.length;
+}
+
+/** S factor: 1 when every slotted task finished inside its window, else lateFactor. */
+export function slotFactorOf(day: DayData, coeff: Coefficients): number {
+  const slotted = (day.tasks ?? []).filter(
+    (t) => t.fromHour !== null && t.fromHour !== undefined,
+  );
+  if (!slotted.length) return 1;
+  const late = slotted.some((t) => {
+    const endHour = (t.toHour ?? t.fromHour!) + 1;
+    if (taskProgress(t) < 1) return true;
+    if (!t.completedAt) return false;
+    const d = new Date(t.completedAt);
+    return d.getHours() + d.getMinutes() / 60 > endHour;
+  });
+  return late ? coeff.lateFactor : 1;
+}
+
+/**
+ * Total daily points
+ *  = flowHours * flowRate * (1 + n) * S  +  shallowHours * shallowRate * (1 + n/2)
+ */
 export function computeDayScore(day: DayData | undefined, coeff: Coefficients): number {
   if (!day) return 0;
-  const { total, flow } = dayTotals(day);
-  const hours = total / 60;
-  const target = day.targetHours || 6;
-  const timeRatio = Math.min(1, target > 0 ? hours / target : 0);
-  const tasks = day.tasks ?? [];
-  const taskRatio = tasks.length
-    ? tasks.reduce((a, t) => a + taskProgress(t), 0) / tasks.length
-    : 1;
-
-  const n = Math.min(
-    1,
-    Math.max(0, coeff.timeWeight * timeRatio + coeff.taskWeight * taskRatio),
-  );
-  const flowRatio = total > 0 ? flow / total : 0;
-  const base = hours * coeff.pointsPerHour * n * (1 + coeff.flowBonus * flowRatio);
+  const { flow, shallow } = dayTotals(day);
+  const n = taskRatioOf(day);
+  const S = slotFactorOf(day, coeff);
+  const base =
+    (flow / 60) * coeff.flowRate * (1 + n) * S +
+    (shallow / 60) * coeff.shallowRate * (1 + n / 2);
   return base + (day.scoreAdjust ?? 0);
 }
+
 
 export function lifetimeScores(s: AppState) {
   let gross = 0;

@@ -17,11 +17,15 @@ import {
   formatHM,
   getDay,
   slotHourNumber,
+  subtaskProgress,
+  syncTaskCompletion,
   taskProgress,
   todayKey,
   useAppState,
+  type SubTask,
   type Task,
 } from "@/lib/store";
+
 import { Btn, Card, Progress, SectionTitle, inputClass, useHydrated } from "@/components/kit";
 import { haptic } from "@/lib/alarm";
 import { cn } from "@/lib/utils";
@@ -83,8 +87,12 @@ function TasksPage() {
   function patch(id: number, fn: (t: Task) => void) {
     editDay(activeDate, (d) => {
       const t = d.tasks.find((x) => x.id === id);
-      if (t) fn(t);
+      if (t) {
+        fn(t);
+        syncTaskCompletion(t);
+      }
       d.tasks = orderTasks(d.tasks);
+
     });
   }
 
@@ -169,11 +177,15 @@ function TasksPage() {
                   onClick={() => {
                     haptic();
                     patch(t.id, (task) => {
-                      const next = !task.completed;
+                      const next = !(taskProgress(task) >= 1);
                       task.completed = next;
-                      (task.subtasks ?? []).forEach((s) => (s.completed = next));
+                      (task.subtasks ?? []).forEach((s) => {
+                        s.completed = next;
+                        (s.steps ?? []).forEach((st) => (st.completed = next));
+                      });
                     });
                   }}
+
                   className={cn(
                     "press grid h-7 w-7 shrink-0 place-items-center rounded-lg border",
                     pct >= 100
@@ -244,52 +256,53 @@ function TasksPage() {
                     </div>
                     <div className="mt-1.5 space-y-1.5">
                       {subs.map((s) => (
-                        <div key={s.id} className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              haptic();
-                              patch(t.id, (task) => {
-                                const sub = (task.subtasks ?? []).find((x) => x.id === s.id);
-                                if (sub) sub.completed = !sub.completed;
-                                const all = task.subtasks ?? [];
-                                task.completed = all.length > 0 && all.every((x) => x.completed);
-                              });
-                            }}
-                            className={cn(
-                              "press grid h-5 w-5 shrink-0 place-items-center rounded-md border",
-                              s.completed
-                                ? "border-transparent bg-success text-success-foreground"
-                                : "border-border bg-surface-2",
-                            )}
-                          >
-                            {s.completed ? <Check className="h-3 w-3" /> : null}
-                          </button>
-                          <span
-                            className={cn(
-                              "min-w-0 flex-1 truncate text-xs",
-                              s.completed && "text-muted-foreground line-through",
-                            )}
-                          >
-                            {s.name}
-                            {perSub ? (
-                              <span className="ml-1 text-[10px] text-muted-foreground">
-                                · {formatHM(perSub)}
-                              </span>
-                            ) : null}
-                          </span>
-                          <button
-                            onClick={() =>
-                              patch(t.id, (task) => {
-                                task.subtasks = (task.subtasks ?? []).filter((x) => x.id !== s.id);
-                              })
-                            }
-                            className="press shrink-0 text-destructive"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
+                        <SubtaskRow
+                          key={s.id}
+                          sub={s}
+                          perSub={perSub}
+                          onToggle={() => {
+                            haptic();
+                            patch(t.id, (task) => {
+                              const sub = (task.subtasks ?? []).find((x) => x.id === s.id);
+                              if (!sub) return;
+                              const next = !(subtaskProgress(sub) >= 1);
+                              sub.completed = next;
+                              (sub.steps ?? []).forEach((st) => (st.completed = next));
+                            });
+                          }}
+                          onToggleStep={(stepId) => {
+                            haptic();
+                            patch(t.id, (task) => {
+                              const sub = (task.subtasks ?? []).find((x) => x.id === s.id);
+                              const st = (sub?.steps ?? []).find((x) => x.id === stepId);
+                              if (st) st.completed = !st.completed;
+                            });
+                          }}
+                          onAddStep={(value) =>
+                            patch(t.id, (task) => {
+                              const sub = (task.subtasks ?? []).find((x) => x.id === s.id);
+                              if (!sub) return;
+                              sub.steps = [
+                                ...(sub.steps ?? []),
+                                { id: Date.now(), name: value, completed: false },
+                              ];
+                            })
+                          }
+                          onRemoveStep={(stepId) =>
+                            patch(t.id, (task) => {
+                              const sub = (task.subtasks ?? []).find((x) => x.id === s.id);
+                              if (sub) sub.steps = (sub.steps ?? []).filter((x) => x.id !== stepId);
+                            })
+                          }
+                          onRemove={() =>
+                            patch(t.id, (task) => {
+                              task.subtasks = (task.subtasks ?? []).filter((x) => x.id !== s.id);
+                            })
+                          }
+                        />
                       ))}
                     </div>
+
                     <SubtaskAdder onAdd={(value) =>
                       patch(t.id, (task) => {
                         task.subtasks = [
@@ -394,7 +407,98 @@ function TasksPage() {
   }
 }
 
-function SubtaskAdder({ onAdd }: { onAdd: (value: string) => void }) {
+function SubtaskRow({
+  sub,
+  perSub,
+  onToggle,
+  onToggleStep,
+  onAddStep,
+  onRemoveStep,
+  onRemove,
+}: {
+  sub: SubTask;
+  perSub: number | null;
+  onToggle: () => void;
+  onToggleStep: (stepId: number) => void;
+  onAddStep: (value: string) => void;
+  onRemoveStep: (stepId: number) => void;
+  onRemove: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const steps = sub.steps ?? [];
+  const pct = subtaskProgress(sub) * 100;
+  const done = pct >= 100;
+  return (
+    <div className="rounded-xl bg-surface-2/60 p-2">
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onToggle}
+          className={cn(
+            "press grid h-5 w-5 shrink-0 place-items-center rounded-md border",
+            done
+              ? "border-transparent bg-success text-success-foreground"
+              : "border-border bg-surface-2",
+          )}
+        >
+          {done ? <Check className="h-3 w-3" /> : null}
+        </button>
+        <button onClick={() => setOpen((v) => !v)} className="min-w-0 flex-1 text-left">
+          <span className={cn("block truncate text-xs", done && "text-muted-foreground line-through")}>
+            {sub.name}
+            {perSub ? (
+              <span className="ml-1 text-[10px] text-muted-foreground">· {formatHM(perSub)}</span>
+            ) : null}
+          </span>
+          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            {steps.length
+              ? `${steps.filter((s) => s.completed).length}/${steps.length} steps · ${Math.round(pct)}%`
+              : "add steps"}
+          </span>
+        </button>
+        <button onClick={onRemove} className="press shrink-0 text-destructive">
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {steps.length ? <Progress className="mt-1.5" value={pct} tone="success" /> : null}
+
+      {open ? (
+        <div className="rise mt-2 space-y-1.5 border-t border-border pt-2 pl-7">
+          {steps.map((st) => (
+            <div key={st.id} className="flex items-center gap-2">
+              <button
+                onClick={() => onToggleStep(st.id)}
+                className={cn(
+                  "press grid h-4 w-4 shrink-0 place-items-center rounded border",
+                  st.completed
+                    ? "border-transparent bg-primary text-primary-foreground"
+                    : "border-border bg-surface",
+                )}
+              >
+                {st.completed ? <Check className="h-2.5 w-2.5" /> : null}
+              </button>
+              <span
+                className={cn(
+                  "min-w-0 flex-1 truncate text-[11px]",
+                  st.completed && "text-muted-foreground line-through",
+                )}
+              >
+                {st.name}
+              </span>
+              <button onClick={() => onRemoveStep(st.id)} className="press shrink-0 text-destructive">
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+          <SubtaskAdder placeholder="Add step (reading, writing…)" onAdd={onAddStep} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SubtaskAdder({ onAdd, placeholder = "Add subtask…" }: { onAdd: (value: string) => void; placeholder?: string }) {
   const [value, setValue] = useState("");
   function submit() {
     const v = value.trim();
@@ -407,7 +511,7 @@ function SubtaskAdder({ onAdd }: { onAdd: (value: string) => void }) {
     <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
       <input
         value={value}
-        placeholder="Add subtask…"
+        placeholder={placeholder}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter") submit();
