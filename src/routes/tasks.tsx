@@ -169,11 +169,15 @@ function TasksPage() {
                   onClick={() => {
                     haptic();
                     patch(t.id, (task) => {
-                      const next = !task.completed;
+                      const next = !(taskProgress(task) >= 1);
                       task.completed = next;
-                      (task.subtasks ?? []).forEach((s) => (s.completed = next));
+                      (task.subtasks ?? []).forEach((s) => {
+                        s.completed = next;
+                        (s.steps ?? []).forEach((st) => (st.completed = next));
+                      });
                     });
                   }}
+
                   className={cn(
                     "press grid h-7 w-7 shrink-0 place-items-center rounded-lg border",
                     pct >= 100
