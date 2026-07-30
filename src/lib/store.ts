@@ -87,15 +87,18 @@ export interface Spend {
 }
 
 export interface Coefficients {
-  pointsPerHour: number;
-  timeWeight: number;
-  taskWeight: number;
-  flowBonus: number;
+  /** points per hour of Flow State time */
+  flowRate: number;
+  /** points per hour of Shallow Work time */
+  shallowRate: number;
+  /** S factor applied when a slotted task overruns its window */
+  lateFactor: number;
   minSlotTargetMins: number;
   downtimeGraceMins: number;
   dayStartHour: number;
   dayEndHour: number;
 }
+
 
 export interface Settings {
   theme: string;
