@@ -28,10 +28,18 @@ export interface BreakEntry {
   slotHour: string;
 }
 
+export interface Step {
+  id: number;
+  name: string;
+  completed: boolean;
+}
+
 export interface SubTask {
   id: number;
   name: string;
   completed: boolean;
+  /** granular modules (reading / writing / memorisation …) */
+  steps?: Step[];
 }
 
 export interface Task {
@@ -45,7 +53,10 @@ export interface Task {
   toHour?: number | null;
   /** planned minutes for the whole task, split evenly across subtasks */
   plannedMins?: number | null;
+  /** timestamp when the task first reached 100% */
+  completedAt?: number | null;
 }
+
 
 export interface SlotTodo {
   id: number;
