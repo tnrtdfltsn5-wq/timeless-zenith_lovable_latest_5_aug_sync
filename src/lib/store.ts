@@ -276,7 +276,11 @@ function normalize(raw: Partial<AppState>): AppState {
     const d = s.db[key];
     s.db[key] = {
       targetHours: d.targetHours ?? 6,
-      tasks: (d.tasks ?? []).map((t) => ({ ...t, subtasks: (t.subtasks ?? []).map((x) => ({ ...x })) })),
+      tasks: (d.tasks ?? []).map((t) => ({
+        ...t,
+        subtasks: (t.subtasks ?? []).map((x) => ({ ...x, steps: (x.steps ?? []).map((s) => ({ ...s })) })),
+      })),
+
       logs: (d.logs ?? []).map((l) => ({ ...l })),
       breaks: (d.breaks ?? []).map((b) => ({ ...b })),
       slotTargets: d.slotTargets ?? {},
