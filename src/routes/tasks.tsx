@@ -248,52 +248,53 @@ function TasksPage() {
                     </div>
                     <div className="mt-1.5 space-y-1.5">
                       {subs.map((s) => (
-                        <div key={s.id} className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              haptic();
-                              patch(t.id, (task) => {
-                                const sub = (task.subtasks ?? []).find((x) => x.id === s.id);
-                                if (sub) sub.completed = !sub.completed;
-                                const all = task.subtasks ?? [];
-                                task.completed = all.length > 0 && all.every((x) => x.completed);
-                              });
-                            }}
-                            className={cn(
-                              "press grid h-5 w-5 shrink-0 place-items-center rounded-md border",
-                              s.completed
-                                ? "border-transparent bg-success text-success-foreground"
-                                : "border-border bg-surface-2",
-                            )}
-                          >
-                            {s.completed ? <Check className="h-3 w-3" /> : null}
-                          </button>
-                          <span
-                            className={cn(
-                              "min-w-0 flex-1 truncate text-xs",
-                              s.completed && "text-muted-foreground line-through",
-                            )}
-                          >
-                            {s.name}
-                            {perSub ? (
-                              <span className="ml-1 text-[10px] text-muted-foreground">
-                                · {formatHM(perSub)}
-                              </span>
-                            ) : null}
-                          </span>
-                          <button
-                            onClick={() =>
-                              patch(t.id, (task) => {
-                                task.subtasks = (task.subtasks ?? []).filter((x) => x.id !== s.id);
-                              })
-                            }
-                            className="press shrink-0 text-destructive"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
+                        <SubtaskRow
+                          key={s.id}
+                          sub={s}
+                          perSub={perSub}
+                          onToggle={() => {
+                            haptic();
+                            patch(t.id, (task) => {
+                              const sub = (task.subtasks ?? []).find((x) => x.id === s.id);
+                              if (!sub) return;
+                              const next = !(subtaskProgress(sub) >= 1);
+                              sub.completed = next;
+                              (sub.steps ?? []).forEach((st) => (st.completed = next));
+                            });
+                          }}
+                          onToggleStep={(stepId) => {
+                            haptic();
+                            patch(t.id, (task) => {
+                              const sub = (task.subtasks ?? []).find((x) => x.id === s.id);
+                              const st = (sub?.steps ?? []).find((x) => x.id === stepId);
+                              if (st) st.completed = !st.completed;
+                            });
+                          }}
+                          onAddStep={(value) =>
+                            patch(t.id, (task) => {
+                              const sub = (task.subtasks ?? []).find((x) => x.id === s.id);
+                              if (!sub) return;
+                              sub.steps = [
+                                ...(sub.steps ?? []),
+                                { id: Date.now(), name: value, completed: false },
+                              ];
+                            })
+                          }
+                          onRemoveStep={(stepId) =>
+                            patch(t.id, (task) => {
+                              const sub = (task.subtasks ?? []).find((x) => x.id === s.id);
+                              if (sub) sub.steps = (sub.steps ?? []).filter((x) => x.id !== stepId);
+                            })
+                          }
+                          onRemove={() =>
+                            patch(t.id, (task) => {
+                              task.subtasks = (task.subtasks ?? []).filter((x) => x.id !== s.id);
+                            })
+                          }
+                        />
                       ))}
                     </div>
+
                     <SubtaskAdder onAdd={(value) =>
                       patch(t.id, (task) => {
                         task.subtasks = [
