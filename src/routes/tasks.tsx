@@ -498,7 +498,7 @@ function SubtaskRow({
   );
 }
 
-function SubtaskAdder({ onAdd }: { onAdd: (value: string) => void }) {
+function SubtaskAdder({ onAdd, placeholder = "Add subtask…" }: { onAdd: (value: string) => void; placeholder?: string }) {
   const [value, setValue] = useState("");
   function submit() {
     const v = value.trim();
@@ -511,7 +511,7 @@ function SubtaskAdder({ onAdd }: { onAdd: (value: string) => void }) {
     <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
       <input
         value={value}
-        placeholder="Add subtask…"
+        placeholder={placeholder}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter") submit();
