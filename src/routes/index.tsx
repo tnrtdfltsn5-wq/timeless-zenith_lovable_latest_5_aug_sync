@@ -188,6 +188,9 @@ function TimerPage() {
   const [pendingBreak, setPendingBreak] = useState<{ start: number; end: number } | null>(null);
   const [celebrate, setCelebrate] = useState<string | null>(null);
 
+  // minutes left before the current hour slot ends
+  const minsLeftInSlot = Math.max(0, 60 - (nowDate.getMinutes() + nowDate.getSeconds() / 60));
+
   // fire the celebration popup the moment the ongoing slot hits its target
   const prevSlotDone = useRef(false);
   useEffect(() => {
@@ -197,10 +200,50 @@ function TimerPage() {
       const earned = computeSlotScore(currentSlotKey, currentSlot.logs, day, state.settings.coeff);
       setCelebrate(`${slotLabel12(currentSlotKey)} target hit! +${Math.round(earned)} pts`);
       haptic([40, 60, 40, 60, 80]);
+      playAlert(state.settings.soundOn);
+      notify("Slot target complete", `${slotLabel12(currentSlotKey)} target reached.`);
     }
     prevSlotDone.current = done;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slotLoggedLive, currentSlot.targetMins, hydrated]);
+
+  // chime when a brand-new slot begins
+  const prevHour = useRef<number | null>(null);
+  useEffect(() => {
+    if (!hydrated) return;
+    const h = nowDate.getHours();
+    if (prevHour.current === null) {
+      prevHour.current = h;
+      return;
+    }
+    if (prevHour.current !== h) {
+      prevHour.current = h;
+      playAlert(state.settings.soundOn);
+      notify("New slot started", `${slotLabel12(slotKeyOfHour(h))} — fresh target, go.`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nowDate.getHours(), hydrated]);
+
+  // strong lag alarm: the slot can no longer be completed at the current pace
+  const laggedSlot = useRef<string | null>(null);
+  useEffect(() => {
+    if (!hydrated) return;
+    if (currentSlot.disabled || currentSlot.targetMins <= 0) return;
+    const needed = currentSlot.targetMins - slotLoggedLive;
+    if (needed <= 0) return;
+    const lagging = needed > minsLeftInSlot && nowDate.getMinutes() >= 5;
+    if (lagging && laggedSlot.current !== currentSlotKey) {
+      laggedSlot.current = currentSlotKey;
+      playStrongAlarm(state.settings.soundOn);
+      haptic([500, 150, 500]);
+      notify(
+        "You're falling behind",
+        `${formatHM(needed)} still needed but only ${formatHM(minsLeftInSlot)} left in this slot.`,
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Math.round(minsLeftInSlot), slotLoggedLive, currentSlotKey, hydrated]);
+
 
   const lastActivityEnd = Math.max(
     state.lastSession?.end ?? 0,
