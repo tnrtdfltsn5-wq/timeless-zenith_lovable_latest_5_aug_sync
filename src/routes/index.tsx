@@ -861,14 +861,14 @@ function ManualLogger() {
 
       {pickSlot ? (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-3 sm:items-center"
+          className="celebrate-veil fixed inset-0 z-[60] flex items-end justify-center bg-foreground/50 p-3 backdrop-blur-sm sm:items-center"
           onClick={() => setPickSlot(false)}
         >
           <div
-            className="animate-rise max-h-[70vh] w-full max-w-md overflow-y-auto rounded-2xl border border-border bg-surface-1 p-4 shadow-xl"
+            className="rise max-h-[75vh] w-full max-w-md overflow-y-auto rounded-3xl border border-border bg-popover p-5 shadow-[var(--shadow-glow)]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-sm font-bold text-foreground">
+            <div className="font-display text-base font-extrabold text-foreground">
               Which slot does {mins} min belong to?
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -877,20 +877,34 @@ function ManualLogger() {
             <div className="mt-3 grid grid-cols-3 gap-2">
               {slots
                 .filter((s) => !s.disabled)
-                .map((s) => (
-                  <button
-                    key={s.slot}
-                    type="button"
-                    onClick={() => logIntoSlot(s.hour)}
-                    className="rounded-xl border border-input bg-surface-2 px-2 py-2 text-center text-xs font-semibold text-foreground transition hover:border-primary"
-                  >
-                    <div>{slotLabel12(s.slot)}</div>
-                    <div className="text-[10px] font-medium text-muted-foreground">
-                      {formatHM(s.loggedMins)}
-                    </div>
-                  </button>
-                ))}
+                .map((s) => {
+                  const isNow = s.hour === new Date().getHours();
+                  return (
+                    <button
+                      key={s.slot}
+                      type="button"
+                      onClick={() => logIntoSlot(s.hour)}
+                      className={cn(
+                        "press rounded-2xl border px-2 py-2.5 text-center text-xs font-bold transition-colors",
+                        isNow
+                          ? "gradient-fill border-transparent text-primary-foreground shadow-[var(--shadow-soft)]"
+                          : "border-border bg-surface-2 text-foreground hover:border-primary hover:bg-accent hover:text-accent-foreground",
+                      )}
+                    >
+                      <div>{slotLabel12(s.slot)}</div>
+                      <div
+                        className={cn(
+                          "text-[10px] font-semibold",
+                          isNow ? "text-primary-foreground/80" : "text-muted-foreground",
+                        )}
+                      >
+                        {formatHM(s.loggedMins)}
+                      </div>
+                    </button>
+                  );
+                })}
             </div>
+
             <Btn className="mt-3 w-full" onClick={() => setPickSlot(false)}>
               Cancel
             </Btn>
