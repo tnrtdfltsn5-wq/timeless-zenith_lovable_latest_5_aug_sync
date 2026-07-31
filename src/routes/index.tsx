@@ -523,8 +523,14 @@ function TimerPage() {
             Slot progress: <strong className="text-success">{formatHM(slotLoggedLive)}</strong> /{" "}
             {formatHM(currentSlot.targetMins)}
           </span>
-          <span>{formatHM(Math.max(0, currentSlot.targetMins - slotLoggedLive))} to go</span>
+          <span>
+            {formatHM(Math.max(0, currentSlot.targetMins - slotLoggedLive))} to go ·{" "}
+            <strong className="text-warning">
+              {hydrated ? Math.ceil(minsLeftInSlot) : 0} min left
+            </strong>
+          </span>
         </div>
+
         <div className="mt-3 rounded-xl bg-surface-2 p-3 text-xs">
           <span className="font-semibold text-muted-foreground">Assigned task: </span>
           <span className="font-semibold">
