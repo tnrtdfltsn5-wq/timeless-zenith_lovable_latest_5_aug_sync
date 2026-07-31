@@ -37,12 +37,14 @@ import {
   haptic,
   notify,
   playAlert,
+  playStrongAlarm,
   primeAudio,
   releaseWakeLock,
   requestNotificationPermission,
   requestWakeLock,
   stopBackgroundAudio,
 } from "@/lib/alarm";
+
 import {
   Btn,
   Card,
@@ -186,6 +188,9 @@ function TimerPage() {
   const [pendingBreak, setPendingBreak] = useState<{ start: number; end: number } | null>(null);
   const [celebrate, setCelebrate] = useState<string | null>(null);
 
+  // minutes left before the current hour slot ends
+  const minsLeftInSlot = Math.max(0, 60 - (nowDate.getMinutes() + nowDate.getSeconds() / 60));
+
   // fire the celebration popup the moment the ongoing slot hits its target
   const prevSlotDone = useRef(false);
   useEffect(() => {
@@ -195,10 +200,50 @@ function TimerPage() {
       const earned = computeSlotScore(currentSlotKey, currentSlot.logs, day, state.settings.coeff);
       setCelebrate(`${slotLabel12(currentSlotKey)} target hit! +${Math.round(earned)} pts`);
       haptic([40, 60, 40, 60, 80]);
+      playAlert(state.settings.soundOn);
+      notify("Slot target complete", `${slotLabel12(currentSlotKey)} target reached.`);
     }
     prevSlotDone.current = done;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slotLoggedLive, currentSlot.targetMins, hydrated]);
+
+  // chime when a brand-new slot begins
+  const prevHour = useRef<number | null>(null);
+  useEffect(() => {
+    if (!hydrated) return;
+    const h = nowDate.getHours();
+    if (prevHour.current === null) {
+      prevHour.current = h;
+      return;
+    }
+    if (prevHour.current !== h) {
+      prevHour.current = h;
+      playAlert(state.settings.soundOn);
+      notify("New slot started", `${slotLabel12(slotKeyOfHour(h))} — fresh target, go.`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nowDate.getHours(), hydrated]);
+
+  // strong lag alarm: the slot can no longer be completed at the current pace
+  const laggedSlot = useRef<string | null>(null);
+  useEffect(() => {
+    if (!hydrated) return;
+    if (currentSlot.disabled || currentSlot.targetMins <= 0) return;
+    const needed = currentSlot.targetMins - slotLoggedLive;
+    if (needed <= 0) return;
+    const lagging = needed > minsLeftInSlot && nowDate.getMinutes() >= 5;
+    if (lagging && laggedSlot.current !== currentSlotKey) {
+      laggedSlot.current = currentSlotKey;
+      playStrongAlarm(state.settings.soundOn);
+      haptic([500, 150, 500]);
+      notify(
+        "You're falling behind",
+        `${formatHM(needed)} still needed but only ${formatHM(minsLeftInSlot)} left in this slot.`,
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Math.round(minsLeftInSlot), slotLoggedLive, currentSlotKey, hydrated]);
+
 
   const lastActivityEnd = Math.max(
     state.lastSession?.end ?? 0,
@@ -478,8 +523,14 @@ function TimerPage() {
             Slot progress: <strong className="text-success">{formatHM(slotLoggedLive)}</strong> /{" "}
             {formatHM(currentSlot.targetMins)}
           </span>
-          <span>{formatHM(Math.max(0, currentSlot.targetMins - slotLoggedLive))} to go</span>
+          <span>
+            {formatHM(Math.max(0, currentSlot.targetMins - slotLoggedLive))} to go ·{" "}
+            <strong className="text-warning">
+              {hydrated ? Math.ceil(minsLeftInSlot) : 0} min left
+            </strong>
+          </span>
         </div>
+
         <div className="mt-3 rounded-xl bg-surface-2 p-3 text-xs">
           <span className="font-semibold text-muted-foreground">Assigned task: </span>
           <span className="font-semibold">
@@ -618,27 +669,57 @@ function TimerPage() {
         </button>
       </Modal>
 
-      {/* Slot target celebration popup */}
+      {/* Slot target celebration — full-screen premium takeover */}
       {celebrate ? (
         <div
-          className="fixed inset-0 z-[70] grid place-items-center bg-foreground/40 backdrop-blur-sm"
+          className="celebrate-veil fixed inset-0 z-[70] grid place-items-center bg-foreground/60 p-4 backdrop-blur-md"
           onClick={() => setCelebrate(null)}
         >
-          <div className="celebrate-card rise mx-4 w-full max-w-sm rounded-3xl border border-border bg-popover p-8 text-center shadow-[var(--shadow-glow)]">
-            <div className="celebrate-icon mx-auto mb-3 grid h-16 w-16 place-items-center rounded-2xl gradient-fill text-primary-foreground">
-              <PartyPopper className="h-8 w-8" />
+          <div
+            className="celebrate-card relative w-full max-w-md overflow-hidden rounded-[2rem] border border-primary/40 bg-popover p-8 text-center shadow-[var(--shadow-glow)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="celebrate-aura pointer-events-none absolute inset-0 opacity-70" />
+            <div className="relative">
+              <div className="celebrate-icon mx-auto mb-5 grid h-24 w-24 place-items-center rounded-3xl gradient-fill text-primary-foreground shadow-[var(--shadow-glow)]">
+                <PartyPopper className="h-12 w-12" />
+              </div>
+              <div className="text-[11px] font-bold tracking-[0.35em] text-muted-foreground uppercase">
+                Target achieved
+              </div>
+              <h3 className="gradient-text mt-1 font-display text-4xl leading-tight font-extrabold tracking-tight">
+                Slot complete!
+              </h3>
+              <p className="mt-3 text-base font-bold text-foreground">{celebrate}</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                You hit the required pace for this slot. Keep the momentum going.
+              </p>
+              <div className="mt-5 grid grid-cols-2 gap-2 text-left">
+                <div className="rounded-2xl bg-surface-2 p-3">
+                  <div className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
+                    Today logged
+                  </div>
+                  <div className="font-display text-lg font-extrabold">
+                    {formatHM(totals.total)}
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-surface-2 p-3">
+                  <div className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
+                    Day score
+                  </div>
+                  <div className="font-display text-lg font-extrabold text-success">
+                    {todayScore.toFixed(0)}
+                  </div>
+                </div>
+              </div>
+              <Btn variant="primary" size="lg" className="mt-5 w-full" onClick={() => setCelebrate(null)}>
+                Keep going
+              </Btn>
             </div>
-            <h3 className="gradient-text font-display text-2xl font-extrabold">Slot complete!</h3>
-            <p className="mt-2 text-sm font-semibold text-foreground">{celebrate}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              You hit the target pace for this slot. Keep the momentum going.
-            </p>
-            <Btn variant="primary" className="mt-5 w-full" onClick={() => setCelebrate(null)}>
-              Keep going
-            </Btn>
           </div>
         </div>
       ) : null}
+
     </div>
 
   );
@@ -780,14 +861,14 @@ function ManualLogger() {
 
       {pickSlot ? (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-3 sm:items-center"
+          className="celebrate-veil fixed inset-0 z-[60] flex items-end justify-center bg-foreground/50 p-3 backdrop-blur-sm sm:items-center"
           onClick={() => setPickSlot(false)}
         >
           <div
-            className="animate-rise max-h-[70vh] w-full max-w-md overflow-y-auto rounded-2xl border border-border bg-surface-1 p-4 shadow-xl"
+            className="rise max-h-[75vh] w-full max-w-md overflow-y-auto rounded-3xl border border-border bg-popover p-5 shadow-[var(--shadow-glow)]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-sm font-bold text-foreground">
+            <div className="font-display text-base font-extrabold text-foreground">
               Which slot does {mins} min belong to?
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -796,20 +877,34 @@ function ManualLogger() {
             <div className="mt-3 grid grid-cols-3 gap-2">
               {slots
                 .filter((s) => !s.disabled)
-                .map((s) => (
-                  <button
-                    key={s.slot}
-                    type="button"
-                    onClick={() => logIntoSlot(s.hour)}
-                    className="rounded-xl border border-input bg-surface-2 px-2 py-2 text-center text-xs font-semibold text-foreground transition hover:border-primary"
-                  >
-                    <div>{slotLabel12(s.slot)}</div>
-                    <div className="text-[10px] font-medium text-muted-foreground">
-                      {formatHM(s.loggedMins)}
-                    </div>
-                  </button>
-                ))}
+                .map((s) => {
+                  const isNow = s.hour === new Date().getHours();
+                  return (
+                    <button
+                      key={s.slot}
+                      type="button"
+                      onClick={() => logIntoSlot(s.hour)}
+                      className={cn(
+                        "press rounded-2xl border px-2 py-2.5 text-center text-xs font-bold transition-colors",
+                        isNow
+                          ? "gradient-fill border-transparent text-primary-foreground shadow-[var(--shadow-soft)]"
+                          : "border-border bg-surface-2 text-foreground hover:border-primary hover:bg-accent hover:text-accent-foreground",
+                      )}
+                    >
+                      <div>{slotLabel12(s.slot)}</div>
+                      <div
+                        className={cn(
+                          "text-[10px] font-semibold",
+                          isNow ? "text-primary-foreground/80" : "text-muted-foreground",
+                        )}
+                      >
+                        {formatHM(s.loggedMins)}
+                      </div>
+                    </button>
+                  );
+                })}
             </div>
+
             <Btn className="mt-3 w-full" onClick={() => setPickSlot(false)}>
               Cancel
             </Btn>

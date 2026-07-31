@@ -5,6 +5,7 @@ import { Ban, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import {
   computeSlots,
   dayTotals,
+  dominoShiftSlot,
   editDay,
   formatHM,
   formatDateDMY,
@@ -16,7 +17,7 @@ import {
   useAppState,
   type DayData,
 } from "@/lib/store";
-import { Btn, Card, Progress, SectionTitle, inputClass, useHydrated } from "@/components/kit";
+import { Btn, Card, Modal, Progress, SectionTitle, inputClass, useHydrated } from "@/components/kit";
 import { haptic } from "@/lib/alarm";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +43,8 @@ export const Route = createFileRoute("/timeline")({
 function TimelinePage() {
   const state = useAppState();
   const hydrated = useHydrated();
+  const [pendingDisable, setPendingDisable] = useState<string | null>(null);
+
   const [activeDate, setActiveDate] = useState(todayKey());
   const day = getDay(state, activeDate);
   const now = new Date();
@@ -193,10 +196,22 @@ function TimelinePage() {
                       title={s.disabled ? "Re-enable slot" : "Remove slot from distribution"}
                       onClick={() => {
                         haptic();
+                        if (s.disabled) {
+                          editDay(activeDate, (d) => {
+                            d.disabledSlots = d.disabledSlots.filter((x) => x !== s.slot);
+                          });
+                          return;
+                        }
+                        const hasContent =
+                          (day.slotTaskIds?.[s.slot]?.length ?? 0) > 0 ||
+                          (day.slotTodos?.[s.slot]?.length ?? 0) > 0 ||
+                          Boolean(day.slotNotes?.[s.slot]);
+                        if (hasContent) {
+                          setPendingDisable(s.slot);
+                          return;
+                        }
                         editDay(activeDate, (d) => {
-                          d.disabledSlots = s.disabled
-                            ? d.disabledSlots.filter((x) => x !== s.slot)
-                            : [...d.disabledSlots, s.slot];
+                          d.disabledSlots = [...d.disabledSlots, s.slot];
                         });
                       }}
                       className={cn(
@@ -206,6 +221,7 @@ function TimelinePage() {
                     >
                       <Ban className="h-3.5 w-3.5" />
                     </button>
+
                   </div>
                 </div>
 
@@ -260,7 +276,57 @@ function TimelinePage() {
       >
         Recalculate all slot targets
       </Btn>
+
+      <Modal
+        open={!!pendingDisable}
+        onClose={() => setPendingDisable(null)}
+        title="This slot has work assigned"
+        subtitle={
+          pendingDisable
+            ? `${slotLabel12(pendingDisable)} — what should happen to its tasks, note and to-dos?`
+            : undefined
+        }
+      >
+        <div className="space-y-2">
+          <Btn
+            variant="primary"
+            className="w-full"
+            onClick={() => {
+              const slot = pendingDisable!;
+              haptic();
+              editDay(activeDate, (d) => {
+                d.disabledSlots = [...d.disabledSlots, slot];
+                dominoShiftSlot(d, slot);
+              });
+              setPendingDisable(null);
+            }}
+          >
+            Push forward (domino)
+          </Btn>
+          <Btn
+            variant="outline"
+            className="w-full"
+            onClick={() => {
+              const slot = pendingDisable!;
+              haptic();
+              editDay(activeDate, (d) => {
+                d.disabledSlots = [...d.disabledSlots, slot];
+              });
+              setPendingDisable(null);
+            }}
+          >
+            Keep tasks where they are
+          </Btn>
+          <button
+            onClick={() => setPendingDisable(null)}
+            className="press w-full pt-1 text-xs font-semibold text-muted-foreground"
+          >
+            Cancel
+          </button>
+        </div>
+      </Modal>
     </div>
+
   );
 }
 

@@ -55,8 +55,8 @@ function ReportPage() {
     : 0;
   const scoreGoal = state.settings.scoreTarget || 1;
 
-  function downloadHtml() {
-    const html = buildStandaloneHtml({
+  function reportHtml() {
+    return buildStandaloneHtml({
       dateLabel: formatDateDMY(date),
       totals,
       breaks,
@@ -69,7 +69,10 @@ function ReportPage() {
       taskPct,
       day,
     });
-    const blob = new Blob([html], { type: "text/html" });
+  }
+
+  function downloadHtml() {
+    const blob = new Blob([reportHtml()], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -78,16 +81,31 @@ function ReportPage() {
     URL.revokeObjectURL(url);
   }
 
+  function printReport() {
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.open();
+    w.document.write(reportHtml());
+    w.document.close();
+    setTimeout(() => {
+      w.focus();
+      w.print();
+    }, 350);
+  }
+
   return (
     <div className="space-y-4">
       <SectionTitle
         right={
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className={cn(inputClass, "w-auto py-1.5 text-xs")}
-          />
+          <div className="flex flex-col items-end gap-0.5">
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className={cn(inputClass, "w-auto py-1.5 text-xs")}
+            />
+            <span className="text-[10px] text-muted-foreground">{formatDateDMY(date)}</span>
+          </div>
         }
       >
         Report generation
@@ -95,17 +113,20 @@ function ReportPage() {
 
       <Card>
         <p className="text-xs text-muted-foreground">
-          Downloads a self-contained single-page report file. Transfer it to any device, then open
-          it in a browser and print to PDF from there — no page breaks, the whole report fits on one
-          page.
+          One continuous page — no page breaks. Print straight to PDF, or download the
+          self-contained file and print it later from any device.
         </p>
-        <Btn className="mt-3 w-full" onClick={downloadHtml}>
+        <Btn className="mt-3 w-full" onClick={printReport}>
+          <FileText className="h-4 w-4" /> Print / Save as PDF
+        </Btn>
+        <Btn variant="outline" className="mt-2 w-full" onClick={downloadHtml}>
           <Download className="h-4 w-4" /> Download report (HTML)
         </Btn>
         <p className="mt-2 text-[11px] text-muted-foreground">
           The HTML file works offline, opens on any phone or PC, and prints as a single page.
         </p>
       </Card>
+
 
       {/* On-screen preview (single continuous page) */}
       {!hydrated ? null : (

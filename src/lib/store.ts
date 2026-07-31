@@ -494,6 +494,40 @@ export function syncTaskCompletion(t: Task) {
   }
 }
 
+/**
+ * Domino-shift the contents (tasks / note / to-dos) of one slot into the next
+ * enabled slot, cascading whatever that slot held onwards until an empty slot
+ * absorbs the chain.
+ */
+export function dominoShiftSlot(d: DayData, fromSlot: string) {
+  const disabled = new Set(d.disabledSlots);
+  const chain = ALL_SLOTS.filter(
+    (s) => slotHourNumber(s) > slotHourNumber(fromSlot) && !disabled.has(s),
+  );
+
+  let carryTasks = d.slotTaskIds[fromSlot] ?? [];
+  let carryNote = d.slotNotes[fromSlot] ?? "";
+  let carryTodos = d.slotTodos[fromSlot] ?? [];
+  delete d.slotTaskIds[fromSlot];
+  delete d.slotNotes[fromSlot];
+  delete d.slotTodos[fromSlot];
+
+  for (const slot of chain) {
+    if (!carryTasks.length && !carryNote && !carryTodos.length) return;
+    const nextTasks = d.slotTaskIds[slot] ?? [];
+    const nextNote = d.slotNotes[slot] ?? "";
+    const nextTodos = d.slotTodos[slot] ?? [];
+    d.slotTaskIds[slot] = carryTasks;
+    if (carryNote) d.slotNotes[slot] = carryNote;
+    else delete d.slotNotes[slot];
+    d.slotTodos[slot] = carryTodos;
+    carryTasks = nextTasks;
+    carryNote = nextNote;
+    carryTodos = nextTodos;
+  }
+}
+
+
 
 
 /* ---------------- Slot target distribution ---------------- */
