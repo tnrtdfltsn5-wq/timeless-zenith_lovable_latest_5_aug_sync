@@ -5,6 +5,7 @@ import { Ban, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import {
   computeSlots,
   dayTotals,
+  dominoShiftSlot,
   editDay,
   formatHM,
   formatDateDMY,
@@ -16,7 +17,7 @@ import {
   useAppState,
   type DayData,
 } from "@/lib/store";
-import { Btn, Card, Progress, SectionTitle, inputClass, useHydrated } from "@/components/kit";
+import { Btn, Card, Modal, Progress, SectionTitle, inputClass, useHydrated } from "@/components/kit";
 import { haptic } from "@/lib/alarm";
 import { cn } from "@/lib/utils";
 
