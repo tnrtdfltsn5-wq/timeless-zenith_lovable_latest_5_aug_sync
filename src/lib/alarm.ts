@@ -45,10 +45,21 @@ function makeWav(freq: number, seconds: number, volume = 0.6): string {
 
 let silentEl: HTMLAudioElement | null = null;
 let toneEl: HTMLAudioElement | null = null;
+let strongEl: HTMLAudioElement | null = null;
 let wakeLock: { release: () => Promise<void> } | null = null;
 
 function silentSrc() {
   return makeWav(1, 1, 0.0001);
+}
+
+/** ~5s pulsing chime used for pomodoro phases, slot completion and slot changes. */
+function toneSrc() {
+  return makeWav(880, 5.2, 0.75);
+}
+
+/** Harsher, lower alarm used when you're lagging behind the slot pace. */
+function strongSrc() {
+  return makeWav(1320, 5.5, 0.9);
 }
 
 /** Call from a user gesture (start button) to unlock background audio. */
@@ -62,7 +73,7 @@ export function primeAudio() {
     }
     void silentEl.play().catch(() => {});
     if (!toneEl) {
-      toneEl = new Audio(makeWav(880, 2.2, 0.7));
+      toneEl = new Audio(toneSrc());
       toneEl.volume = 1;
       // warm up the element so later plays don't need a gesture
       toneEl.muted = true;
@@ -77,6 +88,10 @@ export function primeAudio() {
           toneEl!.muted = false;
         });
     }
+    if (!strongEl) {
+      strongEl = new Audio(strongSrc());
+      strongEl.volume = 1;
+    }
   } catch {
     /* ignore */
   }
@@ -89,14 +104,28 @@ export function stopBackgroundAudio() {
 export function playAlert(enabled: boolean) {
   if (!enabled || typeof window === "undefined") return;
   try {
-    if (!toneEl) toneEl = new Audio(makeWav(880, 2.2, 0.7));
+    if (!toneEl) toneEl = new Audio(toneSrc());
     toneEl.currentTime = 0;
     void toneEl.play().catch(() => {});
   } catch {
     /* ignore */
   }
-  if (navigator.vibrate) navigator.vibrate([300, 120, 300, 120, 500]);
+  if (navigator.vibrate) navigator.vibrate([300, 120, 300, 120, 500, 150, 500]);
 }
+
+/** Urgent alarm — used when the slot is slipping away without logged focus. */
+export function playStrongAlarm(enabled: boolean) {
+  if (!enabled || typeof window === "undefined") return;
+  try {
+    if (!strongEl) strongEl = new Audio(strongSrc());
+    strongEl.currentTime = 0;
+    void strongEl.play().catch(() => {});
+  } catch {
+    /* ignore */
+  }
+  if (navigator.vibrate) navigator.vibrate([500, 150, 500, 150, 500, 150, 800]);
+}
+
 
 export function notify(title: string, body: string) {
   if (typeof window === "undefined" || !("Notification" in window)) return;
