@@ -275,7 +275,57 @@ function TimelinePage() {
       >
         Recalculate all slot targets
       </Btn>
+
+      <Modal
+        open={!!pendingDisable}
+        onClose={() => setPendingDisable(null)}
+        title="This slot has work assigned"
+        subtitle={
+          pendingDisable
+            ? `${slotLabel12(pendingDisable)} — what should happen to its tasks, note and to-dos?`
+            : undefined
+        }
+      >
+        <div className="space-y-2">
+          <Btn
+            variant="primary"
+            className="w-full"
+            onClick={() => {
+              const slot = pendingDisable!;
+              haptic();
+              editDay(activeDate, (d) => {
+                d.disabledSlots = [...d.disabledSlots, slot];
+                dominoShiftSlot(d, slot);
+              });
+              setPendingDisable(null);
+            }}
+          >
+            Push forward (domino)
+          </Btn>
+          <Btn
+            variant="outline"
+            className="w-full"
+            onClick={() => {
+              const slot = pendingDisable!;
+              haptic();
+              editDay(activeDate, (d) => {
+                d.disabledSlots = [...d.disabledSlots, slot];
+              });
+              setPendingDisable(null);
+            }}
+          >
+            Keep tasks where they are
+          </Btn>
+          <button
+            onClick={() => setPendingDisable(null)}
+            className="press w-full pt-1 text-xs font-semibold text-muted-foreground"
+          >
+            Cancel
+          </button>
+        </div>
+      </Modal>
     </div>
+
   );
 }
 
