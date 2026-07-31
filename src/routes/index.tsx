@@ -37,12 +37,14 @@ import {
   haptic,
   notify,
   playAlert,
+  playStrongAlarm,
   primeAudio,
   releaseWakeLock,
   requestNotificationPermission,
   requestWakeLock,
   stopBackgroundAudio,
 } from "@/lib/alarm";
+
 import {
   Btn,
   Card,
