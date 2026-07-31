@@ -669,27 +669,57 @@ function TimerPage() {
         </button>
       </Modal>
 
-      {/* Slot target celebration popup */}
+      {/* Slot target celebration — full-screen premium takeover */}
       {celebrate ? (
         <div
-          className="fixed inset-0 z-[70] grid place-items-center bg-foreground/40 backdrop-blur-sm"
+          className="celebrate-veil fixed inset-0 z-[70] grid place-items-center bg-foreground/60 p-4 backdrop-blur-md"
           onClick={() => setCelebrate(null)}
         >
-          <div className="celebrate-card rise mx-4 w-full max-w-sm rounded-3xl border border-border bg-popover p-8 text-center shadow-[var(--shadow-glow)]">
-            <div className="celebrate-icon mx-auto mb-3 grid h-16 w-16 place-items-center rounded-2xl gradient-fill text-primary-foreground">
-              <PartyPopper className="h-8 w-8" />
+          <div
+            className="celebrate-card relative w-full max-w-md overflow-hidden rounded-[2rem] border border-primary/40 bg-popover p-8 text-center shadow-[var(--shadow-glow)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="celebrate-aura pointer-events-none absolute inset-0 opacity-70" />
+            <div className="relative">
+              <div className="celebrate-icon mx-auto mb-5 grid h-24 w-24 place-items-center rounded-3xl gradient-fill text-primary-foreground shadow-[var(--shadow-glow)]">
+                <PartyPopper className="h-12 w-12" />
+              </div>
+              <div className="text-[11px] font-bold tracking-[0.35em] text-muted-foreground uppercase">
+                Target achieved
+              </div>
+              <h3 className="gradient-text mt-1 font-display text-4xl leading-tight font-extrabold tracking-tight">
+                Slot complete!
+              </h3>
+              <p className="mt-3 text-base font-bold text-foreground">{celebrate}</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                You hit the required pace for this slot. Keep the momentum going.
+              </p>
+              <div className="mt-5 grid grid-cols-2 gap-2 text-left">
+                <div className="rounded-2xl bg-surface-2 p-3">
+                  <div className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
+                    Today logged
+                  </div>
+                  <div className="font-display text-lg font-extrabold">
+                    {formatHM(totals.total)}
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-surface-2 p-3">
+                  <div className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
+                    Day score
+                  </div>
+                  <div className="font-display text-lg font-extrabold text-success">
+                    {todayScore.toFixed(0)}
+                  </div>
+                </div>
+              </div>
+              <Btn variant="primary" size="lg" className="mt-5 w-full" onClick={() => setCelebrate(null)}>
+                Keep going
+              </Btn>
             </div>
-            <h3 className="gradient-text font-display text-2xl font-extrabold">Slot complete!</h3>
-            <p className="mt-2 text-sm font-semibold text-foreground">{celebrate}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              You hit the target pace for this slot. Keep the momentum going.
-            </p>
-            <Btn variant="primary" className="mt-5 w-full" onClick={() => setCelebrate(null)}>
-              Keep going
-            </Btn>
           </div>
         </div>
       ) : null}
+
     </div>
 
   );
