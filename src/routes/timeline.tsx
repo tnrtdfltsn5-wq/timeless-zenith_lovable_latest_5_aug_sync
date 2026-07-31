@@ -42,6 +42,8 @@ export const Route = createFileRoute("/timeline")({
 function TimelinePage() {
   const state = useAppState();
   const hydrated = useHydrated();
+  const [pendingDisable, setPendingDisable] = useState<string | null>(null);
+
   const [activeDate, setActiveDate] = useState(todayKey());
   const day = getDay(state, activeDate);
   const now = new Date();
