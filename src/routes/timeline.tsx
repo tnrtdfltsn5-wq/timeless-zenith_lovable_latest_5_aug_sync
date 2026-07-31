@@ -193,10 +193,22 @@ function TimelinePage() {
                       title={s.disabled ? "Re-enable slot" : "Remove slot from distribution"}
                       onClick={() => {
                         haptic();
+                        if (s.disabled) {
+                          editDay(activeDate, (d) => {
+                            d.disabledSlots = d.disabledSlots.filter((x) => x !== s.slot);
+                          });
+                          return;
+                        }
+                        const hasContent =
+                          (day.slotTaskIds?.[s.slot]?.length ?? 0) > 0 ||
+                          (day.slotTodos?.[s.slot]?.length ?? 0) > 0 ||
+                          Boolean(day.slotNotes?.[s.slot]);
+                        if (hasContent) {
+                          setPendingDisable(s.slot);
+                          return;
+                        }
                         editDay(activeDate, (d) => {
-                          d.disabledSlots = s.disabled
-                            ? d.disabledSlots.filter((x) => x !== s.slot)
-                            : [...d.disabledSlots, s.slot];
+                          d.disabledSlots = [...d.disabledSlots, s.slot];
                         });
                       }}
                       className={cn(
@@ -206,6 +218,7 @@ function TimelinePage() {
                     >
                       <Ban className="h-3.5 w-3.5" />
                     </button>
+
                   </div>
                 </div>
 
