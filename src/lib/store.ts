@@ -127,6 +127,10 @@ export interface Settings {
   coeff: Coefficients;
   /** daily score goal — drives the progress bar on the timer page */
   scoreTarget: number;
+  /** streak goal in days; reward = 200 * days when fully accomplished */
+  streakTargetDays: number;
+  /** streak lengths already rewarded (avoids double payouts) */
+  streakClaims: { id: number; days: number; date: string; points: number }[];
 }
 
 export interface TimerState {
@@ -193,6 +197,8 @@ const defaultState: AppState = {
     soundOn: true,
     coeff: { ...DEFAULT_COEFF },
     scoreTarget: 1200,
+    streakTargetDays: 15,
+    streakClaims: [],
   },
   timer: { ...defaultTimer },
   lastSession: null,
@@ -315,6 +321,8 @@ function normalize(raw: Partial<AppState>): AppState {
       ...(raw.settings ?? {}),
       coeff: { ...DEFAULT_COEFF, ...(raw.settings?.coeff ?? {}) },
       scoreTarget: raw.settings?.scoreTarget ?? 1200,
+      streakTargetDays: raw.settings?.streakTargetDays ?? 15,
+      streakClaims: raw.settings?.streakClaims ?? [],
     },
     timer: { ...defaultTimer, ...(raw.timer ?? {}) },
     db: raw.db ?? {},
