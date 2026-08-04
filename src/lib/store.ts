@@ -775,7 +775,17 @@ export function computeDayScore(day: DayData | undefined, coeff: Coefficients): 
   const base =
     (flow / 60) * coeff.flowRate * (1 + n) * S +
     (shallow / 60) * coeff.shallowRate * (1 + n / 2);
-  return base + (day.scoreAdjust ?? 0);
+  return base + (day.scoreAdjust ?? 0) - funPenalty(day);
+}
+
+/** Points deducted by entertainment time (charged at the flow rate). */
+export function funPenalty(day: DayData | undefined): number {
+  return (day?.funLogs ?? []).reduce((a, f) => a + f.points, 0);
+}
+
+/** Points that will be deducted for `mins` of entertainment. */
+export function funCost(mins: number, coeff: Coefficients): number {
+  return (mins / 60) * coeff.flowRate;
 }
 
 
@@ -789,7 +799,8 @@ export function lifetimeScores(s: AppState) {
     if (key.startsWith(prefix)) month += sc;
   }
   const spent = s.spends.reduce((a, b) => a + b.amount, 0);
-  return { gross, month, spent, net: gross - spent };
+  const bonus = (s.settings.streakClaims ?? []).reduce((a, b) => a + b.points, 0);
+  return { gross: gross + bonus, month, spent, bonus, net: gross + bonus - spent };
 }
 
 /* ---------------- Cross-page slot task names ---------------- */
@@ -814,4 +825,61 @@ export function breakTotals(day: DayData) {
     byTag[b.tag] = (byTag[b.tag] ?? 0) + b.mins;
   });
   return { total, byTag };
+}
+
+
+/* ---------------- Streaks ---------------- */
+
+export function prevDateKey(key: string, back = 1): string {
+  const d = new Date(`${key}T12:00:00`);
+  d.setDate(d.getDate() - back);
+  return dateKeyOf(d);
+}
+
+export function totalMinsOf(db: Record<string, DayData>, key: string): number {
+  return (db[key]?.logs ?? []).reduce((a, l) => a + l.durationMins, 0);
+}
+
+/**
+ * Streak = consecutive days (ending today, or yesterday if today has no time
+ * yet) where the logged time was >= the previous day's logged time and > 0.
+ */
+export function computeStreak(db: Record<string, DayData>, todayK = todayKey()) {
+  let cursor = totalMinsOf(db, todayK) > 0 ? todayK : prevDateKey(todayK);
+  let count = 0;
+  let guard = 0;
+  while (guard++ < 400) {
+    const mins = totalMinsOf(db, cursor);
+    if (mins <= 0) break;
+    const prev = prevDateKey(cursor);
+    const prevMins = totalMinsOf(db, prev);
+    count += 1;
+    if (prevMins <= 0) break;
+    if (mins < prevMins) break;
+    cursor = prev;
+  }
+  return { count, todayMins: totalMinsOf(db, todayK), yesterdayMins: totalMinsOf(db, prevDateKey(todayK)) };
+}
+
+/** Copy every unfinished task of one day into another day. */
+export function carryTasksForward(fromKey: string, toKey: string): number {
+  let moved = 0;
+  setState((s) => {
+    const from = s.db[fromKey];
+    if (!from) return;
+    if (!s.db[toKey]) s.db[toKey] = blankDay();
+    const target = s.db[toKey];
+    const existing = new Set(target.tasks.map((t) => t.name));
+    from.tasks
+      .filter((t) => taskProgress(t) < 1 && !existing.has(t.name))
+      .forEach((t, i) => {
+        moved += 1;
+        target.tasks.push({
+          ...JSON.parse(JSON.stringify(t)),
+          id: Date.now() + i,
+          completedAt: null,
+        });
+      });
+  });
+  return moved;
 }
