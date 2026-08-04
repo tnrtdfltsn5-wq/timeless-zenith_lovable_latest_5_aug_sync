@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useState } from "react";
+import { Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function useNow(intervalMs = 1000) {
@@ -203,5 +204,121 @@ export function Modal({
         <div className="mt-4">{children}</div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Number field that behaves properly on mobile: you can clear it completely,
+ * type a new value (including 0 or a negative one when allowed) and it only
+ * commits a valid number back to the store.
+ */
+export function NumInput({
+  value,
+  onChange,
+  min,
+  max,
+  step,
+  allowNegative,
+  placeholder,
+  className,
+  suffix,
+}: {
+  value: number | null | undefined;
+  onChange: (v: number | null) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  allowNegative?: boolean;
+  placeholder?: string;
+  className?: string;
+  suffix?: string;
+}) {
+  const [text, setText] = useState(value === null || value === undefined ? "" : String(value));
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (focused) return;
+    setText(value === null || value === undefined ? "" : String(value));
+  }, [value, focused]);
+
+  function commit(raw: string) {
+    const t = raw.trim();
+    if (t === "" || t === "-" || t === "." || t === "-.") {
+      onChange(null);
+      return;
+    }
+    let n = Number(t);
+    if (!Number.isFinite(n)) return;
+    if (!allowNegative && n < 0) n = Math.abs(n);
+    if (min !== undefined && n < min) n = min;
+    if (max !== undefined && n > max) n = max;
+    onChange(n);
+  }
+
+  return (
+    <span className="relative block">
+      <input
+        type="text"
+        inputMode={allowNegative ? "text" : "decimal"}
+        value={text}
+        placeholder={placeholder}
+        onFocus={(e) => {
+          setFocused(true);
+          e.currentTarget.select();
+        }}
+        onBlur={(e) => {
+          setFocused(false);
+          commit(e.currentTarget.value);
+          const t = e.currentTarget.value.trim();
+          setText(t === "" ? "" : String(Number(t) || 0));
+        }}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (!/^-?\d*\.?\d*$/.test(v)) return;
+          setText(v);
+          commit(v);
+        }}
+        step={step}
+        className={cn(inputClass, "text-foreground", suffix && "pr-9", className)}
+      />
+      {suffix ? (
+        <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[11px] font-semibold text-muted-foreground">
+          {suffix}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+/** Date picker that always *displays* dd/mm/yyyy while using the native picker. */
+export function DateInput({
+  value,
+  onChange,
+  className,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  className?: string;
+}) {
+  const hydratedNow = useHydrated();
+  const label = (() => {
+    if (!value) return "—";
+    const [y, m, d] = value.split("-");
+    return `${d}/${m}/${y}`;
+  })();
+  return (
+    <span className={cn("relative inline-flex items-center", className)}>
+      <input
+        type="date"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="absolute inset-0 h-full w-full opacity-0"
+        aria-label="Pick a date"
+      />
+      <span className="pointer-events-none inline-flex w-full items-center justify-between gap-2 rounded-xl border border-input bg-surface-2 px-3 py-2 text-sm font-semibold">
+        <span className="tabular-nums">{hydratedNow ? label : "—"}</span>
+        <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+      </span>
+    </span>
   );
 }

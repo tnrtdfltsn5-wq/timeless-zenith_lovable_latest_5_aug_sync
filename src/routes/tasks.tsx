@@ -7,17 +7,24 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
+  Flame,
   MessageSquare,
+  MoreVertical,
   Plus,
   Trash2,
+  Trophy,
 } from "lucide-react";
 import {
   ALL_SLOTS,
+  carryTasksForward,
+  computeStreak,
   editDay,
+  hourLabel,
+  prevDateKey,
+  setState,
   formatDateDMY,
   formatHM,
   getDay,
-  slotHourNumber,
   slotLabel12,
   subtaskProgress,
   syncTaskCompletion,
@@ -28,7 +35,17 @@ import {
   type Task,
 } from "@/lib/store";
 
-import { Btn, Card, Progress, SectionTitle, inputClass, useHydrated } from "@/components/kit";
+import {
+  Btn,
+  Card,
+  DateInput,
+  Modal,
+  NumInput,
+  Progress,
+  SectionTitle,
+  inputClass,
+  useHydrated,
+} from "@/components/kit";
 import { haptic } from "@/lib/alarm";
 import { cn } from "@/lib/utils";
 
@@ -106,29 +123,21 @@ function TasksPage() {
         <div className="grid grid-cols-2 gap-3">
           <label className="text-xs font-semibold text-muted-foreground">
             Active date
-            <input
-              type="date"
-              value={activeDate}
-              onChange={(e) => setActiveDate(e.target.value)}
-              className={cn(inputClass, "mt-1 text-foreground")}
-            />
-            <span className="mt-0.5 block text-[10px] text-muted-foreground">
-              {formatDateDMY(activeDate)}
-            </span>
+            <DateInput className="mt-1 w-full" value={activeDate} onChange={setActiveDate} />
           </label>
           <label className="text-xs font-semibold text-muted-foreground">
             Target hours
-            <input
-              type="number"
+            <NumInput
+              className="mt-1"
               step={0.5}
               min={0}
               value={day.targetHours}
-              onChange={(e) =>
+              suffix="h"
+              onChange={(v) =>
                 editDay(activeDate, (d) => {
-                  d.targetHours = Math.max(0, Number(e.target.value) || 0);
+                  d.targetHours = v ?? 0;
                 })
               }
-              className={cn(inputClass, "mt-1 text-foreground")}
             />
           </label>
         </div>
@@ -319,58 +328,39 @@ function TasksPage() {
                   </div>
 
                   {/* Time box */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <label className="text-[11px] font-semibold text-muted-foreground">
-                      From slot
-                      <select
-                        value={t.fromHour ?? ""}
-                        onChange={(e) =>
-                          patch(t.id, (task) => {
-                            task.fromHour = e.target.value === "" ? null : Number(e.target.value);
-                          })
-                        }
-                        className={cn(inputClass, "mt-1 px-2 py-1.5 text-xs")}
-                      >
-                        <option value="">—</option>
-                        {ALL_SLOTS.map((s) => (
-                          <option key={s} value={slotHourNumber(s)}>
-                            {slotLabel12(s)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="text-[11px] font-semibold text-muted-foreground">
-                      To slot
-                      <select
-                        value={t.toHour ?? ""}
-                        onChange={(e) =>
-                          patch(t.id, (task) => {
-                            task.toHour = e.target.value === "" ? null : Number(e.target.value);
-                          })
-                        }
-                        className={cn(inputClass, "mt-1 px-2 py-1.5 text-xs")}
-                      >
-                        <option value="">—</option>
-                        {ALL_SLOTS.map((s) => (
-                          <option key={s} value={slotHourNumber(s)}>
-                            {slotLabel12(s)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="text-[11px] font-semibold text-muted-foreground">
-                      Planned mins
-                      <input
-                        type="number"
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold tracking-wide text-muted-foreground uppercase">
+                        Target slots
+                      </span>
+                      <span className="text-[11px] font-semibold text-primary">
+                        {t.fromHour === null || t.fromHour === undefined
+                          ? "Tap an hour to set a window"
+                          : `${hourLabel(t.fromHour)} – ${hourLabel((t.toHour ?? t.fromHour) + 1)}`}
+                      </span>
+                    </div>
+                    <SlotRangePicker
+                      from={t.fromHour ?? null}
+                      to={t.toHour ?? null}
+                      onChange={(from, to) =>
+                        patch(t.id, (task) => {
+                          task.fromHour = from;
+                          task.toHour = to;
+                        })
+                      }
+                    />
+                    <label className="mt-2 block text-[11px] font-semibold text-muted-foreground">
+                      Planned minutes (split across subtasks)
+                      <NumInput
+                        className="mt-1 px-2 py-1.5 text-xs"
                         min={0}
-                        value={t.plannedMins ?? ""}
-                        onChange={(e) =>
+                        value={t.plannedMins ?? null}
+                        suffix="min"
+                        onChange={(v) =>
                           patch(t.id, (task) => {
-                            task.plannedMins =
-                              e.target.value === "" ? null : Math.max(0, Number(e.target.value));
+                            task.plannedMins = v;
                           })
                         }
-                        className={cn(inputClass, "mt-1 px-2 py-1.5 text-xs")}
                       />
                     </label>
                   </div>
@@ -586,4 +576,51 @@ function yesterdayOf(dateKey: string) {
   const d = new Date(`${dateKey}T12:00:00`);
   d.setDate(d.getDate() - 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function SlotRangePicker({
+  from,
+  to,
+  onChange,
+}: {
+  from: number | null;
+  to: number | null;
+  onChange: (from: number | null, to: number | null) => void;
+}) {
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  function tap(h: number) {
+    if (from === null || (from !== null && to !== null && from !== to)) {
+      onChange(h, h);
+    } else if (h === from) {
+      onChange(null, null);
+    } else if (h > from) {
+      onChange(from, h);
+    } else {
+      onChange(h, from);
+    }
+  }
+  return (
+    <div className="mt-1.5 -mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
+      {hours.map((h) => {
+        const active = from !== null && h >= from && h <= (to ?? from);
+        const edge = h === from || h === (to ?? from);
+        return (
+          <button
+            key={h}
+            onClick={() => tap(h)}
+            className={cn(
+              "press shrink-0 rounded-lg px-2 py-1.5 text-[11px] font-bold transition-colors",
+              active
+                ? edge
+                  ? "gradient-fill text-primary-foreground"
+                  : "bg-primary/20 text-primary"
+                : "bg-secondary text-muted-foreground",
+            )}
+          >
+            {hourLabel(h)}
+          </button>
+        );
+      })}
+    </div>
+  );
 }

@@ -10,6 +10,9 @@ import {
   Hourglass,
   Plus,
   PartyPopper,
+  BellOff,
+  Flame,
+  Clock3,
 } from "lucide-react";
 import {
   addBreak,
@@ -18,7 +21,11 @@ import {
   computeDayScore,
   computeSlotScore,
   computeSlots,
+  computeStreak,
   dayTotals,
+  editDay,
+  paceInfo,
+  prevDateKey,
   formatClock,
   formatDateDMY,
   formatDuration,
@@ -29,6 +36,8 @@ import {
   slotKeyOfHour,
   slotLabel12,
   slotTaskNames,
+  slotHourNumber,
+  taskProgress,
   todayKey,
   useAppState,
   type Tag,
@@ -49,6 +58,7 @@ import {
   Btn,
   Card,
   Modal,
+  NumInput,
   Pill,
   Progress,
   Stat,
@@ -176,7 +186,31 @@ function TimerPage() {
   const scoreTarget = state.settings.scoreTarget || 1;
   const scorePct = Math.min(100, (todayScore / scoreTarget) * 100);
   const { net } = lifetimeScores(state);
-  const slotTaskList = slotTaskNames(currentSlotKey, day);
+  const hour = nowDate.getHours();
+  // tasks scheduled for this slot: assigned in the timeline OR time-boxed here
+  const windowTasks = day.tasks.filter((t) => {
+    if (t.fromHour === null || t.fromHour === undefined) return false;
+    return hour >= t.fromHour && hour <= (t.toHour ?? t.fromHour);
+  });
+  const activeTaskId = day.slotActiveTask?.[currentSlotKey];
+  const activeTask = day.tasks.find((t) => t.id === activeTaskId) ?? null;
+  const slotTaskList = Array.from(
+    new Set([...slotTaskNames(currentSlotKey, day), ...windowTasks.map((t) => t.name)]),
+  );
+
+  // pace + previous-day comparison + streak
+  const pace = paceInfo(day, key, nowDate);
+  const yKey = prevDateKey(key);
+  const yTotals = dayTotals(getDay(state, yKey));
+  const compareBase = Math.max(yTotals.total, totals.total, 1);
+  const streak = computeStreak(state.db);
+  const streakGoal = state.settings.streakTargetDays || 1;
+  const clockNow = nowDate.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
 
   /* --- pending popups --- */
   const [pendingStop, setPendingStop] = useState<{
@@ -224,26 +258,45 @@ function TimerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nowDate.getHours(), hydrated]);
 
-  // strong lag alarm: the slot can no longer be completed at the current pace
-  const laggedSlot = useRef<string | null>(null);
+  // strong lag alarm: the slot can no longer be completed at the current pace.
+  // It repeats (also with the screen off) until the slot is acknowledged.
+  const acked = (day.ackLagSlots ?? []).includes(currentSlotKey);
+  const neededNow = Math.max(0, currentSlot.targetMins - slotLoggedLive);
+  const lagging =
+    !currentSlot.disabled &&
+    currentSlot.targetMins > 0 &&
+    neededNow > 0 &&
+    neededNow > minsLeftInSlot &&
+    nowDate.getMinutes() >= 5;
+  const [lagAsk, setLagAsk] = useState(false);
+  const lastLagAlarm = useRef(0);
+
   useEffect(() => {
-    if (!hydrated) return;
-    if (currentSlot.disabled || currentSlot.targetMins <= 0) return;
-    const needed = currentSlot.targetMins - slotLoggedLive;
-    if (needed <= 0) return;
-    const lagging = needed > minsLeftInSlot && nowDate.getMinutes() >= 5;
-    if (lagging && laggedSlot.current !== currentSlotKey) {
-      laggedSlot.current = currentSlotKey;
+    if (!hydrated || !lagging || acked) return;
+    const fire = () => {
+      if (Date.now() - lastLagAlarm.current < 100000) return;
+      lastLagAlarm.current = Date.now();
       playStrongAlarm(state.settings.soundOn);
       haptic([500, 150, 500]);
       notify(
         "You're falling behind",
-        `${formatHM(needed)} still needed but only ${formatHM(minsLeftInSlot)} left in this slot.`,
+        `${formatHM(neededNow)} still needed but only ${formatHM(minsLeftInSlot)} left in this slot.`,
       );
-    }
+    };
+    fire();
+    setLagAsk(true);
+    const id = setInterval(fire, 120000);
+    return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [Math.round(minsLeftInSlot), slotLoggedLive, currentSlotKey, hydrated]);
+  }, [lagging, acked, currentSlotKey, hydrated]);
 
+  function ackLag() {
+    haptic();
+    editDay(key, (d) => {
+      d.ackLagSlots = Array.from(new Set([...(d.ackLagSlots ?? []), currentSlotKey]));
+    });
+    setLagAsk(false);
+  }
 
   const lastActivityEnd = Math.max(
     state.lastSession?.end ?? 0,
@@ -342,6 +395,40 @@ function TimerPage() {
 
   return (
     <div className="space-y-4">
+      {/* Live clock + streak */}
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+        <Card className="p-3">
+          <div className="flex items-center gap-2">
+            <Clock3 className="h-4 w-4 shrink-0 text-primary" />
+            <div className="min-w-0">
+              <div className="font-mono text-base leading-none font-extrabold tabular-nums">
+                {hydrated ? clockNow : "--:--:--"}
+              </div>
+              <div className="truncate text-[10px] text-muted-foreground">
+                {hydrated ? formatDateDMY(nowDate) : "—"}
+              </div>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-3">
+          <div className="flex items-center gap-2">
+            <Flame className={cn("h-4 w-4 shrink-0", streak.count > 0 ? "text-warning" : "text-muted-foreground")} />
+            <div>
+              <div className="font-display text-base leading-none font-extrabold">
+                {hydrated ? streak.count : 0}
+                <span className="text-[10px] font-semibold text-muted-foreground"> / {streakGoal}d</span>
+              </div>
+              <div className="text-[10px] text-muted-foreground">streak</div>
+            </div>
+          </div>
+          <Progress
+            className="mt-1.5 h-1.5 w-24"
+            value={Math.min(100, (streak.count / streakGoal) * 100)}
+            tone="warning"
+          />
+        </Card>
+      </div>
+
       {/* Score header */}
       <div className="grid grid-cols-2 gap-3">
         <Stat
@@ -444,31 +531,29 @@ function TimerPage() {
           <div className="mb-3 grid grid-cols-2 gap-2 text-left">
             <label className="text-xs font-semibold text-muted-foreground">
               Work mins
-              <input
-                type="number"
+              <NumInput
+                className="mt-1"
                 min={1}
                 value={state.settings.pomoWork}
-                onChange={(e) =>
+                onChange={(v) =>
                   setState((s) => {
-                    s.settings.pomoWork = Math.max(1, Number(e.target.value) || 25);
+                    s.settings.pomoWork = v ?? 25;
                     s.timer.pomoRemainingSecs = s.settings.pomoWork * 60;
                   })
                 }
-                className="mt-1 w-full rounded-xl border border-input bg-surface-2 px-3 py-2 text-sm text-foreground"
               />
             </label>
             <label className="text-xs font-semibold text-muted-foreground">
               Break mins
-              <input
-                type="number"
+              <NumInput
+                className="mt-1"
                 min={1}
                 value={state.settings.pomoBreak}
-                onChange={(e) =>
+                onChange={(v) =>
                   setState((s) => {
-                    s.settings.pomoBreak = Math.max(1, Number(e.target.value) || 5);
+                    s.settings.pomoBreak = v ?? 5;
                   })
                 }
-                className="mt-1 w-full rounded-xl border border-input bg-surface-2 px-3 py-2 text-sm text-foreground"
               />
             </label>
           </div>
@@ -532,10 +617,23 @@ function TimerPage() {
         </div>
 
         <div className="mt-3 rounded-xl bg-surface-2 p-3 text-xs">
-          <span className="font-semibold text-muted-foreground">Assigned task: </span>
-          <span className="font-semibold">
-            {slotTaskList.length ? slotTaskList.join(" · ") : "No task assigned to this slot"}
-          </span>
+          <div>
+            <span className="font-semibold text-muted-foreground">Scheduled for this slot: </span>
+            <span className="font-semibold">
+              {slotTaskList.length ? slotTaskList.join(" · ") : "No task assigned to this slot"}
+            </span>
+          </div>
+          {activeTask ? (
+            <div className="mt-1.5 flex items-center gap-2">
+              <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary uppercase">
+                Doing now
+              </span>
+              <span className="min-w-0 truncate font-semibold">{activeTask.name}</span>
+              <span className="ml-auto shrink-0 text-[10px] font-bold text-muted-foreground">
+                {Math.round(taskProgress(activeTask) * 100)}%
+              </span>
+            </div>
+          ) : null}
         </div>
       </Card>
 
@@ -558,8 +656,46 @@ function TimerPage() {
           <span>{hoursLeft.toFixed(1)}h left today</span>
         </div>
         <Progress className="mt-2" value={clockPct} tone="warning" />
+
+        {/* Yesterday mirror */}
+        <div className="mt-4 rounded-xl bg-surface-2 p-3">
+          <div className="flex justify-between text-[11px] font-semibold text-muted-foreground">
+            <span>Today vs yesterday</span>
+            <span
+              className={cn(
+                "font-bold",
+                totals.total >= yTotals.total ? "text-success" : "text-destructive",
+              )}
+            >
+              {totals.total >= yTotals.total ? "+" : "−"}
+              {formatHM(Math.abs(totals.total - yTotals.total))}
+            </span>
+          </div>
+          <div className="mt-2 space-y-1.5">
+            <div className="grid grid-cols-[46px_minmax(0,1fr)_58px] items-center gap-2">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase">Today</span>
+              <Progress value={(totals.total / compareBase) * 100} tone="success" />
+              <span className="text-right text-[11px] font-semibold">{formatHM(totals.total)}</span>
+            </div>
+            <div className="grid grid-cols-[46px_minmax(0,1fr)_58px] items-center gap-2">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase">Yest.</span>
+              <Progress value={(yTotals.total / compareBase) * 100} tone="warning" />
+              <span className="text-right text-[11px] font-semibold">{formatHM(yTotals.total)}</span>
+            </div>
+          </div>
+        </div>
         <div className="mt-2 rounded-xl bg-accent px-3 py-2 text-center text-xs font-semibold text-accent-foreground">
-          Pace needed: {formatHM(paceMins(day, totals.total, slots, nowDate))} per remaining slot
+          Pace needed: {formatHM(pace.perSlot)} per remaining slot ·{" "}
+          {Math.round(pace.perHour)} min of every 60
+        </div>
+        <div
+          className={cn(
+            "mt-1.5 rounded-xl px-3 py-2 text-center text-[11px] font-semibold",
+            pace.feasible ? "bg-surface-2 text-muted-foreground" : "bg-destructive/10 text-destructive",
+          )}
+        >
+          {formatHM(pace.remainingTarget)} left to study · {formatHM(pace.usableMins)} of usable time
+          remaining today {pace.feasible ? "" : "— target no longer reachable"}
         </div>
       </Card>
 
@@ -669,6 +805,26 @@ function TimerPage() {
         </button>
       </Modal>
 
+      {/* Falling-behind acknowledgement */}
+      <Modal
+        open={lagAsk && !acked}
+        onClose={() => setLagAsk(false)}
+        title="You're going to lag this slot"
+        subtitle={`${formatHM(neededNow)} still needed but only ${Math.ceil(minsLeftInSlot)} min left in ${slotLabel12(currentSlotKey)}.`}
+      >
+        <div className="space-y-2">
+          <Btn variant="primary" className="w-full" onClick={() => setLagAsk(false)}>
+            I'm starting now — keep alerting
+          </Btn>
+          <Btn variant="outline" className="w-full" onClick={ackLag}>
+            <BellOff className="h-4 w-4" /> I acknowledge — silence this slot
+          </Btn>
+        </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          Silencing only affects {slotLabel12(currentSlotKey)}; the next slot alerts again.
+        </p>
+      </Modal>
+
       {/* Slot target celebration — full-screen premium takeover */}
       {celebrate ? (
         <div
@@ -727,7 +883,7 @@ function TimerPage() {
 
 function ManualLogger() {
   const state = useAppState();
-  const [mins, setMins] = useState("");
+  const [mins, setMins] = useState<number | null>(null);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [showRange, setShowRange] = useState(false);
@@ -752,7 +908,7 @@ function ManualLogger() {
     addSession(start, end, tag, desc.trim() || "Manual entry");
     setMsg(`Logged ${formatHM((end - start) / 60000)} of ${tag}.`);
     setDesc("");
-    setMins("");
+    setMins(null);
     setFrom("");
     setTo("");
   }
@@ -765,7 +921,7 @@ function ManualLogger() {
       commit(start, end);
       return;
     }
-    const m = Number(mins);
+    const m = mins ?? 0;
     if (!m || m <= 0) {
       setMsg("Enter a duration in minutes, or use an exact time range.");
       return;
@@ -775,7 +931,7 @@ function ManualLogger() {
   }
 
   function logIntoSlot(hour: number) {
-    const m = Number(mins);
+    const m = mins ?? 0;
     const d = new Date();
     d.setHours(hour, 0, 0, 0);
     // stack after what's already logged in that slot so entries don't overlap
@@ -796,14 +952,13 @@ function ManualLogger() {
 
       <label className="mt-3 block text-xs font-semibold text-muted-foreground">
         Duration (minutes)
-        <input
-          type="number"
-          inputMode="numeric"
+        <NumInput
+          className="mt-1"
           min={1}
           value={mins}
-          onChange={(e) => setMins(e.target.value)}
+          onChange={setMins}
           placeholder="e.g. 20"
-          className="mt-1 w-full rounded-xl border border-input bg-surface-2 px-3 py-2 text-sm text-foreground"
+          suffix="min"
         />
       </label>
 
@@ -928,15 +1083,4 @@ function elapsedWork(
   elapsed: number,
 ): number {
   return timer.pomoPhase === "work" ? timer.pomoElapsedWorkSecs + elapsed : 0;
-}
-
-function paceMins(
-  day: ReturnType<typeof getDay>,
-  logged: number,
-  slots: ReturnType<typeof computeSlots>,
-  now: Date,
-) {
-  const remaining = Math.max(0, (day.targetHours || 0) * 60 - logged);
-  const left = slots.filter((s) => !s.disabled && s.hour >= now.getHours()).length;
-  return left ? remaining / left : 0;
 }

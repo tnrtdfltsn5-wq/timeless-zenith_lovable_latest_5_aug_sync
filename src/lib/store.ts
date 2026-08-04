@@ -63,22 +63,38 @@ export interface SlotTodo {
   text: string;
 }
 
+/** Entertainment / leisure timer entry — deducts points at the flow rate. */
+export interface FunEntry {
+  id: number;
+  start: number;
+  end: number;
+  mins: number;
+  points: number;
+  label: string;
+}
+
 export interface DayData {
   targetHours: number;
   tasks: Task[];
   logs: LogEntry[];
   breaks: BreakEntry[];
+  funLogs: FunEntry[];
   slotTargets: Record<string, number>;
   slotAssignments: Record<string, string>;
   /** multiple task ids attached to one slot */
   slotTaskIds: Record<string, number[]>;
+  /** the task the user is actively performing in a slot */
+  slotActiveTask: Record<string, number>;
   slotNotes: Record<string, string>;
   slotTodos: Record<string, SlotTodo[]>;
   disabledSlots: string[];
+  /** slots where the user acknowledged the lag alarm (silences it) */
+  ackLagSlots: string[];
   scoreAdjust?: number;
   /** manual per-slot score adjustments keyed by slot label */
   slotScoreAdjust?: Record<string, number>;
 }
+
 
 
 export interface Spend {
@@ -111,6 +127,10 @@ export interface Settings {
   coeff: Coefficients;
   /** daily score goal — drives the progress bar on the timer page */
   scoreTarget: number;
+  /** streak goal in days; reward = 200 * days when fully accomplished */
+  streakTargetDays: number;
+  /** streak lengths already rewarded (avoids double payouts) */
+  streakClaims: { id: number; days: number; date: string; points: number }[];
 }
 
 export interface TimerState {
@@ -177,6 +197,8 @@ const defaultState: AppState = {
     soundOn: true,
     coeff: { ...DEFAULT_COEFF },
     scoreTarget: 1200,
+    streakTargetDays: 15,
+    streakClaims: [],
   },
   timer: { ...defaultTimer },
   lastSession: null,
@@ -299,6 +321,8 @@ function normalize(raw: Partial<AppState>): AppState {
       ...(raw.settings ?? {}),
       coeff: { ...DEFAULT_COEFF, ...(raw.settings?.coeff ?? {}) },
       scoreTarget: raw.settings?.scoreTarget ?? 1200,
+      streakTargetDays: raw.settings?.streakTargetDays ?? 15,
+      streakClaims: raw.settings?.streakClaims ?? [],
     },
     timer: { ...defaultTimer, ...(raw.timer ?? {}) },
     db: raw.db ?? {},
@@ -315,12 +339,15 @@ function normalize(raw: Partial<AppState>): AppState {
 
       logs: (d.logs ?? []).map((l) => ({ ...l })),
       breaks: (d.breaks ?? []).map((b) => ({ ...b })),
+      funLogs: (d.funLogs ?? []).map((f) => ({ ...f })),
       slotTargets: d.slotTargets ?? {},
       slotAssignments: d.slotAssignments ?? {},
       slotTaskIds: d.slotTaskIds ?? {},
+      slotActiveTask: d.slotActiveTask ?? {},
       slotNotes: d.slotNotes ?? {},
       slotTodos: d.slotTodos ?? {},
       disabledSlots: d.disabledSlots ?? [],
+      ackLagSlots: d.ackLagSlots ?? [],
       scoreAdjust: d.scoreAdjust ?? 0,
       slotScoreAdjust: d.slotScoreAdjust ?? {},
     };
@@ -367,12 +394,15 @@ export function blankDay(): DayData {
     tasks: [],
     logs: [],
     breaks: [],
+    funLogs: [],
     slotTargets: {},
     slotAssignments: {},
     slotTaskIds: {},
+    slotActiveTask: {},
     slotNotes: {},
     slotTodos: {},
     disabledSlots: [],
+    ackLagSlots: [],
     scoreAdjust: 0,
     slotScoreAdjust: {},
   };
@@ -553,6 +583,10 @@ export interface SlotInfo {
 export function computeSlots(day: DayData, dateKey: string, now: Date): SlotInfo[] {
   const isToday = dateKey === dateKeyOf(now);
   const currentHour = isToday ? now.getHours() : 24;
+  /** usable minutes still left inside the current hour */
+  const minsLeftInCurrentHour = isToday
+    ? Math.max(0, 60 - (now.getMinutes() + now.getSeconds() / 60))
+    : 0;
   const dailyTargetMins = (day.targetHours || 0) * 60;
   const disabled = new Set(day.disabledSlots);
 
@@ -566,6 +600,15 @@ export function computeSlots(day: DayData, dateKey: string, now: Date): SlotInfo
   const totalLogged = day.logs.reduce((a, b) => a + b.durationMins, 0);
   const enabled = ALL_SLOTS.filter((s) => !disabled.has(s));
 
+  /** real remaining capacity of a slot (the current one is partly gone already) */
+  const capacityOf = (slot: string) => {
+    const h = slotHourNumber(slot);
+    if (disabled.has(slot)) return 0;
+    if (h < currentHour) return 0;
+    if (h === currentHour) return minsLeftInCurrentHour;
+    return 60;
+  };
+
   const futureAuto: string[] = [];
   let explicitFutureMins = 0;
   enabled.forEach((slot) => {
@@ -576,20 +619,24 @@ export function computeSlots(day: DayData, dateKey: string, now: Date): SlotInfo
   });
 
   const remainingTarget = Math.max(0, dailyTargetMins - totalLogged - explicitFutureMins);
-  const perAutoSlot = futureAuto.length ? remainingTarget / futureAuto.length : 0;
+  // distribute proportional to the *real* remaining minutes of each slot
+  const capTotal = futureAuto.reduce((a, s) => a + capacityOf(s), 0);
+  const shareOf = (slot: string) =>
+    capTotal > 0 ? (remainingTarget * capacityOf(slot)) / capTotal : 0;
   const baseline = enabled.length ? dailyTargetMins / enabled.length : 0;
 
   return ALL_SLOTS.map((slot) => {
     const hour = slotHourNumber(slot);
     const isDisabled = disabled.has(slot);
     const explicit = day.slotTargets[slot] !== undefined;
+    const loggedMins = minsOf(slot);
     let targetMins = 0;
     if (isDisabled) targetMins = 0;
     else if (explicit) targetMins = day.slotTargets[slot] * 60;
-    else if (hour >= currentHour) targetMins = perAutoSlot;
+    else if (hour === currentHour) targetMins = loggedMins + shareOf(slot);
+    else if (hour > currentHour) targetMins = shareOf(slot);
     else targetMins = baseline;
 
-    const loggedMins = minsOf(slot);
     return {
       slot,
       hour,
@@ -603,6 +650,42 @@ export function computeSlots(day: DayData, dateKey: string, now: Date): SlotInfo
       logs: (loggedBySlot[slot] ?? []).sort((a, b) => a.start - b.start),
     };
   });
+}
+
+/**
+ * Real pace requirement: remaining target divided by the minutes actually left
+ * today (current slot counted only for the minutes still remaining in it).
+ * Returns both the per-slot pace and the total usable minutes left.
+ */
+export function paceInfo(day: DayData, dateKey: string, now: Date) {
+  const isToday = dateKey === dateKeyOf(now);
+  const currentHour = isToday ? now.getHours() : 24;
+  const minsLeftInCurrentHour = isToday
+    ? Math.max(0, 60 - (now.getMinutes() + now.getSeconds() / 60))
+    : 0;
+  const disabled = new Set(day.disabledSlots);
+  const logged = day.logs.reduce((a, b) => a + b.durationMins, 0);
+  const remainingTarget = Math.max(0, (day.targetHours || 0) * 60 - logged);
+
+  let usableMins = 0;
+  let slotsLeft = 0;
+  ALL_SLOTS.forEach((slot) => {
+    const h = slotHourNumber(slot);
+    if (disabled.has(slot) || h < currentHour) return;
+    usableMins += h === currentHour ? minsLeftInCurrentHour : 60;
+    slotsLeft += 1;
+  });
+
+  return {
+    remainingTarget,
+    usableMins,
+    slotsLeft,
+    /** average minutes of study needed per remaining hour of clock time */
+    perHour: usableMins > 0 ? (remainingTarget / usableMins) * 60 : 0,
+    /** average minutes needed in each remaining slot */
+    perSlot: slotsLeft > 0 ? remainingTarget / slotsLeft : 0,
+    feasible: remainingTarget <= usableMins,
+  };
 }
 
 /* ---------------- Per-slot n factor ---------------- */
@@ -692,7 +775,17 @@ export function computeDayScore(day: DayData | undefined, coeff: Coefficients): 
   const base =
     (flow / 60) * coeff.flowRate * (1 + n) * S +
     (shallow / 60) * coeff.shallowRate * (1 + n / 2);
-  return base + (day.scoreAdjust ?? 0);
+  return base + (day.scoreAdjust ?? 0) - funPenalty(day);
+}
+
+/** Points deducted by entertainment time (charged at the flow rate). */
+export function funPenalty(day: DayData | undefined): number {
+  return (day?.funLogs ?? []).reduce((a, f) => a + f.points, 0);
+}
+
+/** Points that will be deducted for `mins` of entertainment. */
+export function funCost(mins: number, coeff: Coefficients): number {
+  return (mins / 60) * coeff.flowRate;
 }
 
 
@@ -706,7 +799,8 @@ export function lifetimeScores(s: AppState) {
     if (key.startsWith(prefix)) month += sc;
   }
   const spent = s.spends.reduce((a, b) => a + b.amount, 0);
-  return { gross, month, spent, net: gross - spent };
+  const bonus = (s.settings.streakClaims ?? []).reduce((a, b) => a + b.points, 0);
+  return { gross: gross + bonus, month, spent, bonus, net: gross + bonus - spent };
 }
 
 /* ---------------- Cross-page slot task names ---------------- */
@@ -731,4 +825,61 @@ export function breakTotals(day: DayData) {
     byTag[b.tag] = (byTag[b.tag] ?? 0) + b.mins;
   });
   return { total, byTag };
+}
+
+
+/* ---------------- Streaks ---------------- */
+
+export function prevDateKey(key: string, back = 1): string {
+  const d = new Date(`${key}T12:00:00`);
+  d.setDate(d.getDate() - back);
+  return dateKeyOf(d);
+}
+
+export function totalMinsOf(db: Record<string, DayData>, key: string): number {
+  return (db[key]?.logs ?? []).reduce((a, l) => a + l.durationMins, 0);
+}
+
+/**
+ * Streak = consecutive days (ending today, or yesterday if today has no time
+ * yet) where the logged time was >= the previous day's logged time and > 0.
+ */
+export function computeStreak(db: Record<string, DayData>, todayK = todayKey()) {
+  let cursor = totalMinsOf(db, todayK) > 0 ? todayK : prevDateKey(todayK);
+  let count = 0;
+  let guard = 0;
+  while (guard++ < 400) {
+    const mins = totalMinsOf(db, cursor);
+    if (mins <= 0) break;
+    const prev = prevDateKey(cursor);
+    const prevMins = totalMinsOf(db, prev);
+    count += 1;
+    if (prevMins <= 0) break;
+    if (mins < prevMins) break;
+    cursor = prev;
+  }
+  return { count, todayMins: totalMinsOf(db, todayK), yesterdayMins: totalMinsOf(db, prevDateKey(todayK)) };
+}
+
+/** Copy every unfinished task of one day into another day. */
+export function carryTasksForward(fromKey: string, toKey: string): number {
+  let moved = 0;
+  setState((s) => {
+    const from = s.db[fromKey];
+    if (!from) return;
+    if (!s.db[toKey]) s.db[toKey] = blankDay();
+    const target = s.db[toKey];
+    const existing = new Set(target.tasks.map((t) => t.name));
+    from.tasks
+      .filter((t) => taskProgress(t) < 1 && !existing.has(t.name))
+      .forEach((t, i) => {
+        moved += 1;
+        target.tasks.push({
+          ...JSON.parse(JSON.stringify(t)),
+          id: Date.now() + i,
+          completedAt: null,
+        });
+      });
+  });
+  return moved;
 }

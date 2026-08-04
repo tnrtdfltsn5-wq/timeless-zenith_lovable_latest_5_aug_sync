@@ -9,6 +9,8 @@ import {
   Gauge,
   Database,
   FileText,
+  LineChart,
+  Gamepad2,
 
   SlidersHorizontal,
   Moon,
@@ -28,8 +30,10 @@ const PRIMARY_NAV = [
 ] as const;
 
 const MORE_NAV = [
+  { to: "/analysis", label: "Analysis", icon: LineChart },
   { to: "/history", label: "History", icon: History },
   { to: "/report", label: "Report", icon: FileText },
+  { to: "/fun", label: "Leisure", icon: Gamepad2 },
   { to: "/arena", label: "Downtime", icon: Gauge },
   { to: "/data", label: "Backup", icon: Database },
   { to: "/dev", label: "Engine", icon: SlidersHorizontal },
@@ -119,7 +123,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <nav className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-[560px] border-t border-border bg-background/90 px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
         {moreOpen ? (
-          <div className="rise mb-2 grid grid-cols-5 gap-1.5 rounded-2xl bg-surface-2 p-2">
+          <div className="rise mb-2 grid grid-cols-4 gap-1.5 rounded-2xl bg-surface-2 p-2">
             {MORE_NAV.map((item) => (
               <NavItem key={item.to} {...item} active={pathname === item.to} />
             ))}
