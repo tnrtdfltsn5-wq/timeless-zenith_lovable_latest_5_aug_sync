@@ -63,22 +63,38 @@ export interface SlotTodo {
   text: string;
 }
 
+/** Entertainment / leisure timer entry — deducts points at the flow rate. */
+export interface FunEntry {
+  id: number;
+  start: number;
+  end: number;
+  mins: number;
+  points: number;
+  label: string;
+}
+
 export interface DayData {
   targetHours: number;
   tasks: Task[];
   logs: LogEntry[];
   breaks: BreakEntry[];
+  funLogs: FunEntry[];
   slotTargets: Record<string, number>;
   slotAssignments: Record<string, string>;
   /** multiple task ids attached to one slot */
   slotTaskIds: Record<string, number[]>;
+  /** the task the user is actively performing in a slot */
+  slotActiveTask: Record<string, number>;
   slotNotes: Record<string, string>;
   slotTodos: Record<string, SlotTodo[]>;
   disabledSlots: string[];
+  /** slots where the user acknowledged the lag alarm (silences it) */
+  ackLagSlots: string[];
   scoreAdjust?: number;
   /** manual per-slot score adjustments keyed by slot label */
   slotScoreAdjust?: Record<string, number>;
 }
+
 
 
 export interface Spend {
