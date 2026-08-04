@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Download, FileText, Image as ImageIcon } from "lucide-react";
+import { Download, FileText, Image as ImageIcon, Share2 } from "lucide-react";
+import { shareReportOverWifi } from "@/lib/share";
 import {
   breakTotals,
   computeDayScore,
@@ -93,6 +94,21 @@ function ReportPage() {
     }, 350);
   }
 
+  const [sharing, setSharing] = useState(false);
+
+  async function shareReport() {
+    setSharing(true);
+    try {
+      await shareReportOverWifi({
+        filename: `flow-report-${date}.html`,
+        html: reportHtml(),
+        title: `Flow report — ${formatDateDMY(date)}`,
+      });
+    } finally {
+      setSharing(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <SectionTitle
@@ -121,6 +137,9 @@ function ReportPage() {
         </Btn>
         <Btn variant="outline" className="mt-2 w-full" onClick={downloadHtml}>
           <Download className="h-4 w-4" /> Download report (HTML)
+        </Btn>
+        <Btn variant="outline" className="mt-2 w-full" onClick={shareReport} disabled={sharing}>
+          <Share2 className="h-4 w-4" /> {sharing ? "Opening share…" : "Send over WiFi / to device"}
         </Btn>
         <p className="mt-2 text-[11px] text-muted-foreground">
           The HTML file works offline, opens on any phone or PC, and prints as a single page.
