@@ -186,7 +186,31 @@ function TimerPage() {
   const scoreTarget = state.settings.scoreTarget || 1;
   const scorePct = Math.min(100, (todayScore / scoreTarget) * 100);
   const { net } = lifetimeScores(state);
-  const slotTaskList = slotTaskNames(currentSlotKey, day);
+  const hour = nowDate.getHours();
+  // tasks scheduled for this slot: assigned in the timeline OR time-boxed here
+  const windowTasks = day.tasks.filter((t) => {
+    if (t.fromHour === null || t.fromHour === undefined) return false;
+    return hour >= t.fromHour && hour <= (t.toHour ?? t.fromHour);
+  });
+  const activeTaskId = day.slotActiveTask?.[currentSlotKey];
+  const activeTask = day.tasks.find((t) => t.id === activeTaskId) ?? null;
+  const slotTaskList = Array.from(
+    new Set([...slotTaskNames(currentSlotKey, day), ...windowTasks.map((t) => t.name)]),
+  );
+
+  // pace + previous-day comparison + streak
+  const pace = paceInfo(day, key, nowDate);
+  const yKey = prevDateKey(key);
+  const yTotals = dayTotals(getDay(state, yKey));
+  const compareBase = Math.max(yTotals.total, totals.total, 1);
+  const streak = computeStreak(state.db);
+  const streakGoal = state.settings.streakTargetDays || 1;
+  const clockNow = nowDate.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
 
   /* --- pending popups --- */
   const [pendingStop, setPendingStop] = useState<{
@@ -561,10 +585,23 @@ function TimerPage() {
         </div>
 
         <div className="mt-3 rounded-xl bg-surface-2 p-3 text-xs">
-          <span className="font-semibold text-muted-foreground">Assigned task: </span>
-          <span className="font-semibold">
-            {slotTaskList.length ? slotTaskList.join(" · ") : "No task assigned to this slot"}
-          </span>
+          <div>
+            <span className="font-semibold text-muted-foreground">Scheduled for this slot: </span>
+            <span className="font-semibold">
+              {slotTaskList.length ? slotTaskList.join(" · ") : "No task assigned to this slot"}
+            </span>
+          </div>
+          {activeTask ? (
+            <div className="mt-1.5 flex items-center gap-2">
+              <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary uppercase">
+                Doing now
+              </span>
+              <span className="min-w-0 truncate font-semibold">{activeTask.name}</span>
+              <span className="ml-auto shrink-0 text-[10px] font-bold text-muted-foreground">
+                {Math.round(taskProgress(activeTask) * 100)}%
+              </span>
+            </div>
+          ) : null}
         </div>
       </Card>
 
@@ -588,7 +625,17 @@ function TimerPage() {
         </div>
         <Progress className="mt-2" value={clockPct} tone="warning" />
         <div className="mt-2 rounded-xl bg-accent px-3 py-2 text-center text-xs font-semibold text-accent-foreground">
-          Pace needed: {formatHM(paceMins(day, totals.total, slots, nowDate))} per remaining slot
+          Pace needed: {formatHM(pace.perSlot)} per remaining slot ·{" "}
+          {Math.round(pace.perHour)} min of every 60
+        </div>
+        <div
+          className={cn(
+            "mt-1.5 rounded-xl px-3 py-2 text-center text-[11px] font-semibold",
+            pace.feasible ? "bg-surface-2 text-muted-foreground" : "bg-destructive/10 text-destructive",
+          )}
+        >
+          {formatHM(pace.remainingTarget)} left to study · {formatHM(pace.usableMins)} of usable time
+          remaining today {pace.feasible ? "" : "— target no longer reachable"}
         </div>
       </Card>
 
