@@ -577,3 +577,50 @@ function yesterdayOf(dateKey: string) {
   d.setDate(d.getDate() - 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+
+function SlotRangePicker({
+  from,
+  to,
+  onChange,
+}: {
+  from: number | null;
+  to: number | null;
+  onChange: (from: number | null, to: number | null) => void;
+}) {
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  function tap(h: number) {
+    if (from === null || (from !== null && to !== null && from !== to)) {
+      onChange(h, h);
+    } else if (h === from) {
+      onChange(null, null);
+    } else if (h > from) {
+      onChange(from, h);
+    } else {
+      onChange(h, from);
+    }
+  }
+  return (
+    <div className="mt-1.5 -mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
+      {hours.map((h) => {
+        const active = from !== null && h >= from && h <= (to ?? from);
+        const edge = h === from || h === (to ?? from);
+        return (
+          <button
+            key={h}
+            onClick={() => tap(h)}
+            className={cn(
+              "press shrink-0 rounded-lg px-2 py-1.5 text-[11px] font-bold transition-colors",
+              active
+                ? edge
+                  ? "gradient-fill text-primary-foreground"
+                  : "bg-primary/20 text-primary"
+                : "bg-secondary text-muted-foreground",
+            )}
+          >
+            {hourLabel(h)}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
