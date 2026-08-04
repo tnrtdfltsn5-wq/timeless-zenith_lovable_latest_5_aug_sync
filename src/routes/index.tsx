@@ -234,26 +234,45 @@ function TimerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nowDate.getHours(), hydrated]);
 
-  // strong lag alarm: the slot can no longer be completed at the current pace
-  const laggedSlot = useRef<string | null>(null);
+  // strong lag alarm: the slot can no longer be completed at the current pace.
+  // It repeats (also with the screen off) until the slot is acknowledged.
+  const acked = (day.ackLagSlots ?? []).includes(currentSlotKey);
+  const neededNow = Math.max(0, currentSlot.targetMins - slotLoggedLive);
+  const lagging =
+    !currentSlot.disabled &&
+    currentSlot.targetMins > 0 &&
+    neededNow > 0 &&
+    neededNow > minsLeftInSlot &&
+    nowDate.getMinutes() >= 5;
+  const [lagAsk, setLagAsk] = useState(false);
+  const lastLagAlarm = useRef(0);
+
   useEffect(() => {
-    if (!hydrated) return;
-    if (currentSlot.disabled || currentSlot.targetMins <= 0) return;
-    const needed = currentSlot.targetMins - slotLoggedLive;
-    if (needed <= 0) return;
-    const lagging = needed > minsLeftInSlot && nowDate.getMinutes() >= 5;
-    if (lagging && laggedSlot.current !== currentSlotKey) {
-      laggedSlot.current = currentSlotKey;
+    if (!hydrated || !lagging || acked) return;
+    const fire = () => {
+      if (Date.now() - lastLagAlarm.current < 100000) return;
+      lastLagAlarm.current = Date.now();
       playStrongAlarm(state.settings.soundOn);
       haptic([500, 150, 500]);
       notify(
         "You're falling behind",
-        `${formatHM(needed)} still needed but only ${formatHM(minsLeftInSlot)} left in this slot.`,
+        `${formatHM(neededNow)} still needed but only ${formatHM(minsLeftInSlot)} left in this slot.`,
       );
-    }
+    };
+    fire();
+    setLagAsk(true);
+    const id = setInterval(fire, 120000);
+    return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [Math.round(minsLeftInSlot), slotLoggedLive, currentSlotKey, hydrated]);
+  }, [lagging, acked, currentSlotKey, hydrated]);
 
+  function ackLag() {
+    haptic();
+    editDay(key, (d) => {
+      d.ackLagSlots = Array.from(new Set([...(d.ackLagSlots ?? []), currentSlotKey]));
+    });
+    setLagAsk(false);
+  }
 
   const lastActivityEnd = Math.max(
     state.lastSession?.end ?? 0,
