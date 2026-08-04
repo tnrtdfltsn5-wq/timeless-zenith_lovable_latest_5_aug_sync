@@ -583,6 +583,10 @@ export interface SlotInfo {
 export function computeSlots(day: DayData, dateKey: string, now: Date): SlotInfo[] {
   const isToday = dateKey === dateKeyOf(now);
   const currentHour = isToday ? now.getHours() : 24;
+  /** usable minutes still left inside the current hour */
+  const minsLeftInCurrentHour = isToday
+    ? Math.max(0, 60 - (now.getMinutes() + now.getSeconds() / 60))
+    : 0;
   const dailyTargetMins = (day.targetHours || 0) * 60;
   const disabled = new Set(day.disabledSlots);
 
@@ -596,6 +600,15 @@ export function computeSlots(day: DayData, dateKey: string, now: Date): SlotInfo
   const totalLogged = day.logs.reduce((a, b) => a + b.durationMins, 0);
   const enabled = ALL_SLOTS.filter((s) => !disabled.has(s));
 
+  /** real remaining capacity of a slot (the current one is partly gone already) */
+  const capacityOf = (slot: string) => {
+    const h = slotHourNumber(slot);
+    if (disabled.has(slot)) return 0;
+    if (h < currentHour) return 0;
+    if (h === currentHour) return minsLeftInCurrentHour;
+    return 60;
+  };
+
   const futureAuto: string[] = [];
   let explicitFutureMins = 0;
   enabled.forEach((slot) => {
@@ -606,20 +619,24 @@ export function computeSlots(day: DayData, dateKey: string, now: Date): SlotInfo
   });
 
   const remainingTarget = Math.max(0, dailyTargetMins - totalLogged - explicitFutureMins);
-  const perAutoSlot = futureAuto.length ? remainingTarget / futureAuto.length : 0;
+  // distribute proportional to the *real* remaining minutes of each slot
+  const capTotal = futureAuto.reduce((a, s) => a + capacityOf(s), 0);
+  const shareOf = (slot: string) =>
+    capTotal > 0 ? (remainingTarget * capacityOf(slot)) / capTotal : 0;
   const baseline = enabled.length ? dailyTargetMins / enabled.length : 0;
 
   return ALL_SLOTS.map((slot) => {
     const hour = slotHourNumber(slot);
     const isDisabled = disabled.has(slot);
     const explicit = day.slotTargets[slot] !== undefined;
+    const loggedMins = minsOf(slot);
     let targetMins = 0;
     if (isDisabled) targetMins = 0;
     else if (explicit) targetMins = day.slotTargets[slot] * 60;
-    else if (hour >= currentHour) targetMins = perAutoSlot;
+    else if (hour === currentHour) targetMins = loggedMins + shareOf(slot);
+    else if (hour > currentHour) targetMins = shareOf(slot);
     else targetMins = baseline;
 
-    const loggedMins = minsOf(slot);
     return {
       slot,
       hour,
@@ -633,6 +650,42 @@ export function computeSlots(day: DayData, dateKey: string, now: Date): SlotInfo
       logs: (loggedBySlot[slot] ?? []).sort((a, b) => a.start - b.start),
     };
   });
+}
+
+/**
+ * Real pace requirement: remaining target divided by the minutes actually left
+ * today (current slot counted only for the minutes still remaining in it).
+ * Returns both the per-slot pace and the total usable minutes left.
+ */
+export function paceInfo(day: DayData, dateKey: string, now: Date) {
+  const isToday = dateKey === dateKeyOf(now);
+  const currentHour = isToday ? now.getHours() : 24;
+  const minsLeftInCurrentHour = isToday
+    ? Math.max(0, 60 - (now.getMinutes() + now.getSeconds() / 60))
+    : 0;
+  const disabled = new Set(day.disabledSlots);
+  const logged = day.logs.reduce((a, b) => a + b.durationMins, 0);
+  const remainingTarget = Math.max(0, (day.targetHours || 0) * 60 - logged);
+
+  let usableMins = 0;
+  let slotsLeft = 0;
+  ALL_SLOTS.forEach((slot) => {
+    const h = slotHourNumber(slot);
+    if (disabled.has(slot) || h < currentHour) return;
+    usableMins += h === currentHour ? minsLeftInCurrentHour : 60;
+    slotsLeft += 1;
+  });
+
+  return {
+    remainingTarget,
+    usableMins,
+    slotsLeft,
+    /** average minutes of study needed per remaining hour of clock time */
+    perHour: usableMins > 0 ? (remainingTarget / usableMins) * 60 : 0,
+    /** average minutes needed in each remaining slot */
+    perSlot: slotsLeft > 0 ? remainingTarget / slotsLeft : 0,
+    feasible: remainingTarget <= usableMins,
+  };
 }
 
 /* ---------------- Per-slot n factor ---------------- */
