@@ -77,12 +77,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="mx-auto flex min-h-[100dvh] w-full max-w-[560px] flex-col bg-background">
-      <header className="sticky top-0 z-30 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/85 px-4 py-3 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/85 px-4 py-2 backdrop-blur-xl">
         <div className="min-w-0">
-          <h1 className="gradient-text truncate font-display text-lg font-extrabold">
-            Flow Tracker
-          </h1>
-          <p className="truncate text-[11px] text-muted-foreground">Deep work, slot by slot</p>
+          <div className="font-mono text-base leading-none font-extrabold tabular-nums">
+            {mounted ? clock : "--:--:--"}
+          </div>
+          <p className="truncate text-[11px] text-muted-foreground">{mounted ? dateLabel : "—"}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <ThemeMenu />
