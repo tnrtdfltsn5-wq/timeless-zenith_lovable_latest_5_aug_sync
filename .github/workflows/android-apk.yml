@@ -1,0 +1,62 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  workflow_dispatch: {}   # lets you trigger a build manually from the Actions tab
+
+permissions:
+  contents: write          # needed to attach the APK to a GitHub Release
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Java (JDK 21)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Build web + sync Capacitor
+        run: npm run app:build
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Rename APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk flow-tracker.apk
+
+      # Downloadable from the Actions run page (Artifacts section)
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flow-tracker-apk
+          path: flow-tracker.apk
+          if-no-files-found: error
+
+      # When you push a tag like v1.0.0, also publish a Release with the APK attached
+      - name: Publish Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: flow-tracker.apk

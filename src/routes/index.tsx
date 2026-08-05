@@ -12,6 +12,7 @@ import {
   PartyPopper,
   BellOff,
   Flame,
+  AlertTriangle,
   Clock3,
 } from "lucide-react";
 import {
@@ -205,6 +206,7 @@ function TimerPage() {
   const compareBase = Math.max(yTotals.total, totals.total, 1);
   const streak = computeStreak(state.db);
   const streakGoal = state.settings.streakTargetDays || 1;
+  const [streakEdit, setStreakEdit] = useState(false);
   const clockNow = nowDate.toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
@@ -395,54 +397,51 @@ function TimerPage() {
 
   return (
     <div className="space-y-4">
-      {/* Live clock + streak */}
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-        <Card className="p-3">
-          <div className="flex items-center gap-2">
-            <Clock3 className="h-4 w-4 shrink-0 text-primary" />
-            <div className="min-w-0">
-              <div className="font-mono text-base leading-none font-extrabold tabular-nums">
-                {hydrated ? clockNow : "--:--:--"}
-              </div>
-              <div className="truncate text-[10px] text-muted-foreground">
-                {hydrated ? formatDateDMY(nowDate) : "—"}
-              </div>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-3">
+      {/* Row 1 — streak + score */}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={() => setStreakEdit(true)}
+          className="surface-card press p-3 text-left"
+        >
           <div className="flex items-center gap-2">
             <Flame className={cn("h-4 w-4 shrink-0", streak.count > 0 ? "text-warning" : "text-muted-foreground")} />
-            <div>
+            <div className="min-w-0">
               <div className="font-display text-base leading-none font-extrabold">
                 {hydrated ? streak.count : 0}
                 <span className="text-[10px] font-semibold text-muted-foreground"> / {streakGoal}d</span>
               </div>
-              <div className="text-[10px] text-muted-foreground">streak</div>
+              <div className="text-[10px] text-muted-foreground">streak · tap to set goal</div>
             </div>
           </div>
           <Progress
-            className="mt-1.5 h-1.5 w-24"
+            className="mt-1.5 h-1.5"
             value={Math.min(100, (streak.count / streakGoal) * 100)}
             tone="warning"
           />
-        </Card>
-      </div>
-
-      {/* Score header */}
-      <div className="grid grid-cols-2 gap-3">
-        <Stat
-          label="Today's score"
-          value={hydrated ? todayScore.toFixed(0) : "—"}
-          sub={`${formatHM(totals.total)} logged`}
-          tone="primary"
-        />
-        <Stat
-          label="Net total"
-          value={hydrated ? net.toFixed(0) : "—"}
-          sub="lifetime after redemptions"
-          tone="success"
-        />
+        </button>
+        <div className="surface-card p-3">
+          <div className="flex items-baseline justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+                Today
+              </div>
+              <div className="gradient-text font-display text-xl leading-none font-extrabold">
+                {hydrated ? todayScore.toFixed(0) : "—"}
+              </div>
+            </div>
+            <div className="shrink-0 text-right">
+              <div className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+                Net
+              </div>
+              <div className="font-display text-base leading-none font-extrabold text-success">
+                {hydrated ? net.toFixed(0) : "—"}
+              </div>
+            </div>
+          </div>
+          <div className="mt-1.5 text-[10px] text-muted-foreground">
+            {formatHM(totals.total)} logged
+          </div>
+        </div>
       </div>
 
       {/* Score target bar */}
@@ -456,6 +455,88 @@ function TimerPage() {
         <Progress className="mt-2" value={scorePct} tone="primary" />
         <div className="mt-1 text-[11px] text-muted-foreground">
           {Math.round(scorePct)}% of daily score goal · set your target on the Score page
+        </div>
+      </Card>
+
+      {/* Ongoing slot */}
+      <Card>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+              Ongoing slot
+            </div>
+            <div className="truncate font-display text-base font-bold">
+              {slotLabel12(currentSlotKey)}
+            </div>
+          </div>
+          <span className="shrink-0 rounded-full bg-accent px-2.5 py-1 text-[11px] font-bold text-accent-foreground">
+            {currentSlot.disabled ? "Reserved / off" : `${Math.round(slotPct)}%`}
+          </span>
+        </div>
+        <Progress className="mt-2" value={slotPct} />
+        <div className="mt-1.5 flex justify-between text-xs text-muted-foreground">
+          <span>
+            Slot progress: <strong className="text-success">{formatHM(slotLoggedLive)}</strong> /{" "}
+            {formatHM(currentSlot.targetMins)}
+          </span>
+          <span>
+            {formatHM(Math.max(0, currentSlot.targetMins - slotLoggedLive))} to go ·{" "}
+            <strong className="text-warning">
+              {hydrated ? Math.ceil(minsLeftInSlot) : 0} min left
+            </strong>
+          </span>
+        </div>
+
+        <div
+          className={cn(
+            "mt-3 rounded-xl p-3 text-xs",
+            pace.feasible ? "bg-surface-2" : "bg-danger/10",
+          )}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-semibold text-muted-foreground">Pace needed</span>
+            <span className="font-display text-sm font-extrabold">
+              {hydrated ? `${Math.ceil(pace.perSlot)} min / slot` : "—"}
+            </span>
+          </div>
+          <div className="mt-1 text-[11px] text-muted-foreground">
+            {formatHM(Math.round(pace.remainingTarget))} left over{" "}
+            {Math.ceil(pace.currentUsable)} min of this slot
+            {pace.fullSlotsLeft > 0 ? ` + ${pace.fullSlotsLeft} full slot(s)` : ""}
+          </div>
+          {pace.mustFillCurrent && pace.currentUsable > 0 ? (
+            <div className="mt-2 flex items-start gap-2 rounded-lg bg-danger/15 p-2 font-semibold text-danger">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                No breaks this slot — use all {Math.ceil(pace.currentUsable)} remaining minutes.
+              </span>
+            </div>
+          ) : null}
+          {!pace.feasible ? (
+            <div className="mt-1 text-[11px] font-semibold text-danger">
+              Target exceeds the time left today — trim it or enable more slots.
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mt-3 rounded-xl bg-surface-2 p-3 text-xs">
+          <div>
+            <span className="font-semibold text-muted-foreground">Scheduled for this slot: </span>
+            <span className="font-semibold">
+              {slotTaskList.length ? slotTaskList.join(" · ") : "No task assigned to this slot"}
+            </span>
+          </div>
+          {activeTask ? (
+            <div className="mt-1.5 flex items-center gap-2">
+              <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary uppercase">
+                Doing now
+              </span>
+              <span className="min-w-0 truncate font-semibold">{activeTask.name}</span>
+              <span className="ml-auto shrink-0 text-[10px] font-bold text-muted-foreground">
+                {Math.round(taskProgress(activeTask) * 100)}%
+              </span>
+            </div>
+          ) : null}
         </div>
       </Card>
 
@@ -501,30 +582,6 @@ function TimerPage() {
           )}
         >
           {display}
-        </div>
-
-        <div className="mb-3 flex items-center justify-center gap-2">
-          {(["Flow State", "Shallow Work"] as Tag[]).map((t) => (
-            <Pill
-              key={t}
-              active={timer.tag === t}
-              onClick={() => {
-                haptic();
-                setState((s) => {
-                  s.timer.tag = t;
-                });
-              }}
-            >
-              <span className="inline-flex items-center gap-1">
-                {t === "Flow State" ? (
-                  <Zap className="h-3 w-3" />
-                ) : (
-                  <Waves className="h-3 w-3" />
-                )}
-                {t}
-              </span>
-            </Pill>
-          ))}
         </div>
 
         {timer.mode === "pomodoro" && !timer.running ? (
@@ -585,56 +642,6 @@ function TimerPage() {
             Keeps playing with the screen off — audio + vibration fire at each phase change.
           </p>
         ) : null}
-      </Card>
-
-      {/* Ongoing slot */}
-      <Card>
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-          <div className="min-w-0">
-            <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-              Ongoing slot
-            </div>
-            <div className="truncate font-display text-base font-bold">
-              {slotLabel12(currentSlotKey)}
-            </div>
-          </div>
-          <span className="shrink-0 rounded-full bg-accent px-2.5 py-1 text-[11px] font-bold text-accent-foreground">
-            {currentSlot.disabled ? "Reserved / off" : `${Math.round(slotPct)}%`}
-          </span>
-        </div>
-        <Progress className="mt-2" value={slotPct} />
-        <div className="mt-1.5 flex justify-between text-xs text-muted-foreground">
-          <span>
-            Slot progress: <strong className="text-success">{formatHM(slotLoggedLive)}</strong> /{" "}
-            {formatHM(currentSlot.targetMins)}
-          </span>
-          <span>
-            {formatHM(Math.max(0, currentSlot.targetMins - slotLoggedLive))} to go ·{" "}
-            <strong className="text-warning">
-              {hydrated ? Math.ceil(minsLeftInSlot) : 0} min left
-            </strong>
-          </span>
-        </div>
-
-        <div className="mt-3 rounded-xl bg-surface-2 p-3 text-xs">
-          <div>
-            <span className="font-semibold text-muted-foreground">Scheduled for this slot: </span>
-            <span className="font-semibold">
-              {slotTaskList.length ? slotTaskList.join(" · ") : "No task assigned to this slot"}
-            </span>
-          </div>
-          {activeTask ? (
-            <div className="mt-1.5 flex items-center gap-2">
-              <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary uppercase">
-                Doing now
-              </span>
-              <span className="min-w-0 truncate font-semibold">{activeTask.name}</span>
-              <span className="ml-auto shrink-0 text-[10px] font-bold text-muted-foreground">
-                {Math.round(taskProgress(activeTask) * 100)}%
-              </span>
-            </div>
-          ) : null}
-        </div>
       </Card>
 
       {/* Day progress vs target */}
@@ -876,10 +883,50 @@ function TimerPage() {
         </div>
       ) : null}
 
+      <Modal open={streakEdit} onClose={() => setStreakEdit(false)} title="Streak goal">
+        <p className="text-xs text-muted-foreground">
+          Hit your daily score target this many days in a row to claim the streak reward.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {[7, 15, 21, 30, 60, 100].map((d) => (
+            <button
+              key={d}
+              onClick={() => {
+                haptic();
+                setState((st) => {
+                  st.settings.streakTargetDays = d;
+                });
+              }}
+              className={cn(
+                "press rounded-xl px-3 py-2 text-sm font-semibold",
+                streakGoal === d ? "bg-primary text-primary-foreground" : "bg-secondary",
+              )}
+            >
+              {d} days
+            </button>
+          ))}
+        </div>
+        <div className="mt-3">
+          <div className="text-[11px] text-muted-foreground">Custom</div>
+          <NumInput
+            className="mt-1 w-full"
+            value={streakGoal}
+            min={1}
+            onChange={(v) =>
+              setState((st) => {
+                st.settings.streakTargetDays = Math.max(1, v ?? 1);
+              })
+            }
+          />
+        </div>
+        <Btn className="mt-3 w-full" onClick={() => setStreakEdit(false)}>
+          Done
+        </Btn>
+      </Modal>
     </div>
-
   );
 }
+
 
 function ManualLogger() {
   const state = useAppState();
