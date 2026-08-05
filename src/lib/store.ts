@@ -326,6 +326,7 @@ function normalize(raw: Partial<AppState>): AppState {
       scoreTarget: raw.settings?.scoreTarget ?? 1200,
       streakTargetDays: raw.settings?.streakTargetDays ?? 15,
       streakClaims: raw.settings?.streakClaims ?? [],
+      sleepSlots: raw.settings?.sleepSlots ?? [],
     },
     timer: { ...defaultTimer, ...(raw.timer ?? {}) },
     db: raw.db ?? {},
