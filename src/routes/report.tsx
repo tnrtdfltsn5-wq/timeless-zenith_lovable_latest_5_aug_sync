@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Download, FileText, Image as ImageIcon, Share2 } from "lucide-react";
 import { shareReportOverWifi } from "@/lib/share";
 import {
+  ALL_SLOTS,
+  setState,
   breakTotals,
   computeDayScore,
   computeSlots,
@@ -16,7 +18,7 @@ import {
   todayKey,
   useAppState,
 } from "@/lib/store";
-import { Btn, Card, SectionTitle, inputClass, useHydrated } from "@/components/kit";
+import { Btn, Card, DateInput, SectionTitle, useHydrated } from "@/components/kit";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/report")({
@@ -49,7 +51,15 @@ function ReportPage() {
   const score = computeDayScore(state.db[date], state.settings.coeff);
   const targetMins = (day.targetHours || 0) * 60;
   const dayPct = targetMins ? Math.min(100, (totals.total / targetMins) * 100) : 0;
-  const usedSlots = slots.filter((s) => !s.disabled && (s.loggedMins > 0 || s.targetMins > 0));
+  const sleepSet = new Set(state.settings.sleepSlots ?? []);
+  const usedSlots = slots.filter(
+    (s) => !s.disabled && !sleepSet.has(s.slot) && (s.loggedMins > 0 || s.targetMins > 0),
+  );
+  const sleepSlots = slots.filter((s) => sleepSet.has(s.slot));
+  const sleepLabel = sleepSlots.length
+    ? `${slotLabel12(sleepSlots[0].slot).split(" – ")[0]} – ${slotLabel12(sleepSlots[sleepSlots.length - 1].slot).split(" – ").pop()}`
+    : "";
+  const sleepMins = sleepSlots.length * 60;
   const tasks = day.tasks ?? [];
   const taskPct = tasks.length
     ? (tasks.reduce((a, t) => a + taskProgress(t), 0) / tasks.length) * 100
@@ -66,6 +76,8 @@ function ReportPage() {
       dayPct,
       scoreGoal,
       usedSlots,
+      sleepLabel,
+      sleepMins,
       tasks,
       taskPct,
       day,
@@ -112,17 +124,7 @@ function ReportPage() {
   return (
     <div className="space-y-4">
       <SectionTitle
-        right={
-          <div className="flex flex-col items-end gap-0.5">
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className={cn(inputClass, "w-auto py-1.5 text-xs")}
-            />
-            <span className="text-[10px] text-muted-foreground">{formatDateDMY(date)}</span>
-          </div>
-        }
+        right={<DateInput className="w-[150px]" value={date} onChange={setDate} />}
       >
         Report generation
       </SectionTitle>
@@ -147,6 +149,40 @@ function ReportPage() {
       </Card>
 
 
+      <Card>
+        <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+          Sleep slots
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Tap the hours you sleep — they collapse into one minimal bar on the report instead of
+          cluttering the slot list.
+        </p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {ALL_SLOTS.map((slot) => {
+            const on = (state.settings.sleepSlots ?? []).includes(slot);
+            return (
+              <button
+                key={slot}
+                onClick={() =>
+                  setState((st) => {
+                    const list = new Set(st.settings.sleepSlots ?? []);
+                    if (list.has(slot)) list.delete(slot);
+                    else list.add(slot);
+                    st.settings.sleepSlots = ALL_SLOTS.filter((x) => list.has(x));
+                  })
+                }
+                className={cn(
+                  "press rounded-lg px-2 py-1 text-[11px] font-semibold",
+                  on ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground",
+                )}
+              >
+                {slotLabel12(slot).split(" – ")[0]}
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+
       {/* On-screen preview (single continuous page) */}
       {!hydrated ? null : (
         <Card className="p-0">
@@ -166,6 +202,8 @@ function ReportPage() {
               dayPct={dayPct}
               scoreGoal={scoreGoal}
               usedSlots={usedSlots}
+              sleepLabel={sleepLabel}
+              sleepMins={sleepMins}
               tasks={tasks}
               taskPct={taskPct}
               day={day}
@@ -188,6 +226,8 @@ function ReportPreview({
   dayPct,
   scoreGoal,
   usedSlots,
+  sleepLabel,
+  sleepMins,
   tasks,
   taskPct,
   day,
@@ -200,6 +240,8 @@ function ReportPreview({
   dayPct: number;
   scoreGoal: number;
   usedSlots: ReturnType<typeof computeSlots>;
+  sleepLabel: string;
+  sleepMins: number;
   tasks: ReturnType<typeof getDay>["tasks"];
   taskPct: number;
   day: ReturnType<typeof getDay>;
@@ -288,6 +330,22 @@ function ReportPreview({
           })}
         </div>
       )}
+
+      {sleepLabel ? (
+        <div
+          className="mt-1 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b pb-1.5"
+          style={{ borderColor: "color-mix(in oklab, var(--ink-k) 25%, transparent)" }}
+        >
+          <span className="font-mono text-[11px] font-bold">{sleepLabel}</span>
+          <span
+            className="block h-2 w-full"
+            style={{ background: "color-mix(in oklab, var(--ink-k) 35%, transparent)" }}
+          />
+          <span className="text-right font-mono text-[11px] font-bold">
+            SLEEP · {formatHM(sleepMins)}
+          </span>
+        </div>
+      ) : null}
 
       {/* Tasks */}
       <PreviewHeading>Tasks · {Math.round(taskPct)}% complete</PreviewHeading>
@@ -401,11 +459,13 @@ function buildStandaloneHtml(args: {
   dayPct: number;
   scoreGoal: number;
   usedSlots: ReturnType<typeof computeSlots>;
+  sleepLabel: string;
+  sleepMins: number;
   tasks: ReturnType<typeof getDay>["tasks"];
   taskPct: number;
   day: ReturnType<typeof getDay>;
 }): string {
-  const { dateLabel, totals, breaks, score, targetMins, dayPct, scoreGoal, usedSlots, tasks, taskPct, day } = args;
+  const { dateLabel, totals, breaks, score, targetMins, dayPct, scoreGoal, usedSlots, sleepLabel, sleepMins, tasks, taskPct, day } = args;
   const scorePct = Math.min(100, (score / scoreGoal) * 100);
 
   const slotRows = usedSlots.length
@@ -423,6 +483,14 @@ function buildStandaloneHtml(args: {
         })
         .join("")
     : "<p style=\"font-size:12px\">No slot activity recorded for this day.</p>";
+
+  const sleepRow = sleepLabel
+    ? `<div style="display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;border-bottom:1px solid rgba(0,0,0,.2);padding-bottom:6px">
+        <span style="font-family:monospace;font-size:11px;font-weight:700">${esc(sleepLabel)}</span>
+        <span style="display:block;height:8px;background:rgba(0,0,0,.35)"></span>
+        <span style="text-align:right;font-family:monospace;font-size:11px;font-weight:700">SLEEP · ${formatHM(sleepMins)}</span>
+      </div>`
+    : "";
 
   const taskRows = tasks.length
     ? tasks
@@ -527,7 +595,7 @@ function buildStandaloneHtml(args: {
   </div>
 
   <h3 class="heading">Slot by slot</h3>
-  ${slotRows}
+  ${slotRows}${sleepRow}
 
   <h3 class="heading">Tasks · ${Math.round(taskPct)}% complete</h3>
   ${taskRows}

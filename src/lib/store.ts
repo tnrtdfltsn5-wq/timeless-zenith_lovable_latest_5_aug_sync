@@ -131,6 +131,8 @@ export interface Settings {
   streakTargetDays: number;
   /** streak lengths already rewarded (avoids double payouts) */
   streakClaims: { id: number; days: number; date: string; points: number }[];
+  /** slot keys treated as sleep — collapsed into one bar on the report */
+  sleepSlots: string[];
 }
 
 export interface TimerState {
@@ -199,6 +201,7 @@ const defaultState: AppState = {
     scoreTarget: 1200,
     streakTargetDays: 15,
     streakClaims: [],
+    sleepSlots: [],
   },
   timer: { ...defaultTimer },
   lastSession: null,
@@ -323,6 +326,7 @@ function normalize(raw: Partial<AppState>): AppState {
       scoreTarget: raw.settings?.scoreTarget ?? 1200,
       streakTargetDays: raw.settings?.streakTargetDays ?? 15,
       streakClaims: raw.settings?.streakClaims ?? [],
+      sleepSlots: raw.settings?.sleepSlots ?? [],
     },
     timer: { ...defaultTimer, ...(raw.timer ?? {}) },
     db: raw.db ?? {},
@@ -669,21 +673,37 @@ export function paceInfo(day: DayData, dateKey: string, now: Date) {
 
   let usableMins = 0;
   let slotsLeft = 0;
+  let fullSlotsLeft = 0;
   ALL_SLOTS.forEach((slot) => {
     const h = slotHourNumber(slot);
     if (disabled.has(slot) || h < currentHour) return;
     usableMins += h === currentHour ? minsLeftInCurrentHour : 60;
     slotsLeft += 1;
+    if (h > currentHour) fullSlotsLeft += 1;
   });
+
+  const currentUsable = disabled.has(slotKeyOfHour(currentHour)) ? 0 : minsLeftInCurrentHour;
+  /**
+   * Pace for each *whole* slot still ahead: whatever cannot be squeezed into
+   * the remainder of the current slot has to be spread over the full slots.
+   */
+  const afterCurrent = Math.max(0, remainingTarget - currentUsable);
+  const perSlot =
+    fullSlotsLeft > 0 ? afterCurrent / fullSlotsLeft : Math.min(remainingTarget, currentUsable);
 
   return {
     remainingTarget,
     usableMins,
     slotsLeft,
+    fullSlotsLeft,
+    /** minutes of the current slot still usable */
+    currentUsable,
     /** average minutes of study needed per remaining hour of clock time */
     perHour: usableMins > 0 ? (remainingTarget / usableMins) * 60 : 0,
-    /** average minutes needed in each remaining slot */
-    perSlot: slotsLeft > 0 ? remainingTarget / slotsLeft : 0,
+    /** minutes needed in each remaining *full* slot */
+    perSlot,
+    /** the current slot has to be used end-to-end with no breaks */
+    mustFillCurrent: remainingTarget >= currentUsable && currentUsable > 0,
     feasible: remainingTarget <= usableMins,
   };
 }
@@ -882,4 +902,81 @@ export function carryTasksForward(fromKey: string, toKey: string): number {
       });
   });
   return moved;
+}
+
+/* ---------------- Backup parsing / merging ---------------- */
+
+const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Accepts any Flow Tracker backup shape and returns a normalized AppState:
+ *  - current format: { db, spends, settings, … }
+ *  - older exports missing spends / settings / timer
+ *  - legacy single-file exports: a bare map of "yyyy-mm-dd" -> day data
+ *  - a wrapper like { state: {...} } or { data: {...} }
+ */
+export function parseBackup(text: string): AppState | null {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (!raw || typeof raw !== "object") return null;
+  let obj = raw as Record<string, unknown>;
+  if (!obj.db && obj.state && typeof obj.state === "object") obj = obj.state as Record<string, unknown>;
+  if (!obj.db && obj.data && typeof obj.data === "object") obj = obj.data as Record<string, unknown>;
+
+  if (!obj.db) {
+    // bare day map?
+    const keys = Object.keys(obj).filter((k) => DATE_KEY_RE.test(k));
+    if (!keys.length) return null;
+    const db: Record<string, DayData> = {};
+    keys.forEach((k) => (db[k] = obj[k] as DayData));
+    return normalize({ db } as Partial<AppState>);
+  }
+  if (typeof obj.db !== "object" || obj.db === null) return null;
+  return normalize(obj as Partial<AppState>);
+}
+
+/** Merge an incoming backup into the current state without losing anything. */
+export function mergeBackup(incoming: AppState) {
+  const current = getState();
+  const db = { ...current.db };
+  for (const key of Object.keys(incoming.db)) {
+    const a = db[key];
+    const b = incoming.db[key];
+    if (!a) {
+      db[key] = b;
+      continue;
+    }
+    const ids = new Set(a.logs.map((l) => l.id));
+    const breakIds = new Set((a.breaks ?? []).map((l) => l.id));
+    db[key] = {
+      ...b,
+      ...a,
+      logs: [...a.logs, ...b.logs.filter((l) => !ids.has(l.id))],
+      breaks: [...(a.breaks ?? []), ...(b.breaks ?? []).filter((l) => !breakIds.has(l.id))],
+      tasks: a.tasks.length ? a.tasks : b.tasks,
+      slotTargets: { ...b.slotTargets, ...a.slotTargets },
+      slotAssignments: { ...b.slotAssignments, ...a.slotAssignments },
+      slotTaskIds: { ...b.slotTaskIds, ...a.slotTaskIds },
+      slotNotes: { ...b.slotNotes, ...a.slotNotes },
+      slotTodos: { ...b.slotTodos, ...a.slotTodos },
+      disabledSlots: Array.from(new Set([...a.disabledSlots, ...b.disabledSlots])),
+    };
+  }
+  const spendIds = new Set(current.spends.map((s) => s.id));
+  replaceState({
+    ...current,
+    db,
+    spends: [...current.spends, ...(incoming.spends ?? []).filter((s) => !spendIds.has(s.id))],
+  });
+}
+
+/** Summary counts for a parsed backup, used in the import confirmation UI. */
+export function backupStats(s: AppState) {
+  const days = Object.keys(s.db).length;
+  const logs = Object.values(s.db).reduce((a, d) => a + (d.logs?.length ?? 0), 0);
+  return { days, logs };
 }
