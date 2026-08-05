@@ -18,7 +18,7 @@ import {
   Palette,
   X,
 } from "lucide-react";
-import { formatDateDMY, hydrate, setState, useAppState } from "@/lib/store";
+import { hydrate, setState, useAppState } from "@/lib/store";
 import { haptic } from "@/lib/alarm";
 import { cn } from "@/lib/utils";
 
@@ -53,22 +53,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     setMounted(true);
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
   }, []);
-
-  const nowDate = new Date(now);
-  const clock = nowDate.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-  const dateLabel = formatDateDMY(nowDate);
 
 
   useEffect(() => {
@@ -89,12 +77,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="mx-auto flex min-h-[100dvh] w-full max-w-[560px] flex-col bg-background">
-      <header className="sticky top-0 z-30 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/85 px-4 py-2 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/85 px-4 py-3 backdrop-blur-xl">
         <div className="min-w-0">
-          <div className="font-mono text-base leading-none font-extrabold tabular-nums">
-            {mounted ? clock : "--:--:--"}
-          </div>
-          <p className="truncate text-[11px] text-muted-foreground">{mounted ? dateLabel : "—"}</p>
+          <h1 className="gradient-text truncate font-display text-lg font-extrabold">
+            Flow Tracker
+          </h1>
+          <p className="truncate text-[11px] text-muted-foreground">Deep work, slot by slot</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <ThemeMenu />

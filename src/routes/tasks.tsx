@@ -117,9 +117,7 @@ function TasksPage() {
 
   return (
     <div className="space-y-4">
-      <SectionTitle right={<TaskMenu activeDate={activeDate} />}>
-        Daily targets & tasks
-      </SectionTitle>
+      <SectionTitle>Daily targets & tasks</SectionTitle>
 
       <Card>
         <div className="grid grid-cols-2 gap-3">
@@ -623,61 +621,6 @@ function SlotRangePicker({
           </button>
         );
       })}
-    </div>
-  );
-}
-
-function shiftKey(key: string, delta: number) {
-  const [y, m, d] = key.split("-").map(Number);
-  const dt = new Date(y, m - 1, d + delta);
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
-}
-
-/** Minimal 3-dot menu: carry unfinished tasks between days. */
-function TaskMenu({ activeDate }: { activeDate: string }) {
-  const [open, setOpen] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-
-  function run(from: string, to: string, label: string) {
-    const moved = carryTasksForward(from, to);
-    setOpen(false);
-    setMsg(moved ? `${moved} task(s) copied ${label}.` : `No unfinished tasks to copy ${label}.`);
-    setTimeout(() => setMsg(null), 3500);
-  }
-
-  return (
-    <div className="relative">
-      <button
-        aria-label="Task options"
-        onClick={() => setOpen((v) => !v)}
-        className="press grid h-9 w-9 place-items-center rounded-xl bg-secondary"
-      >
-        <MoreVertical className="h-4 w-4" />
-      </button>
-      {open ? (
-        <>
-          <button className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} />
-          <div className="rise absolute right-0 z-20 mt-2 w-60 overflow-hidden rounded-2xl border border-border bg-popover p-1.5 shadow-[var(--shadow-soft)]">
-            <button
-              onClick={() => run(activeDate, shiftKey(activeDate, 1), "to tomorrow")}
-              className="press w-full rounded-xl px-3 py-2 text-left text-sm font-medium hover:bg-secondary"
-            >
-              Carry unfinished → next day
-            </button>
-            <button
-              onClick={() => run(prevDateKey(activeDate), activeDate, "from yesterday")}
-              className="press w-full rounded-xl px-3 py-2 text-left text-sm font-medium hover:bg-secondary"
-            >
-              Pull unfinished ← previous day
-            </button>
-          </div>
-        </>
-      ) : null}
-      {msg ? (
-        <div className="absolute right-0 z-20 mt-2 w-56 rounded-xl border border-border bg-popover p-2 text-[11px] shadow-[var(--shadow-soft)]">
-          {msg}
-        </div>
-      ) : null}
     </div>
   );
 }

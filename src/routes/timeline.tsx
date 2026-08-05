@@ -17,7 +17,7 @@ import {
   useAppState,
   type DayData,
 } from "@/lib/store";
-import { Btn, Card, DateInput, Modal, Progress, SectionTitle, inputClass, useHydrated } from "@/components/kit";
+import { Btn, Card, Modal, Progress, SectionTitle, inputClass, useHydrated } from "@/components/kit";
 import { haptic } from "@/lib/alarm";
 import { cn } from "@/lib/utils";
 
@@ -77,7 +77,17 @@ function TimelinePage() {
   return (
     <div className="space-y-4">
       <SectionTitle
-        right={<DateInput className="w-[150px]" value={activeDate} onChange={setActiveDate} />}
+        right={
+          <div className="flex flex-col items-end gap-0.5">
+            <input
+              type="date"
+              value={activeDate}
+              onChange={(e) => setActiveDate(e.target.value)}
+              className={cn(inputClass, "w-auto py-1.5 text-xs")}
+            />
+            <span className="text-[10px] text-muted-foreground">{formatDateDMY(activeDate)}</span>
+          </div>
+        }
       >
         Timeline
       </SectionTitle>

@@ -1,19 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useRef, useState } from "react";
-import { Download, Upload, Copy, AlertTriangle, Wifi, RotateCcw } from "lucide-react";
-import {
-  STORAGE_KEY,
-  backupStats,
-  getState,
-  mergeBackup,
-  parseBackup,
-  replaceState,
-  todayKey,
-  useAppState,
-} from "@/lib/store";
+import { Download, Upload, Copy, AlertTriangle } from "lucide-react";
+import { STORAGE_KEY, getState, replaceState, todayKey, useAppState, type AppState } from "@/lib/store";
 import { Btn, Card, SectionTitle, useHydrated } from "@/components/kit";
 import { haptic } from "@/lib/alarm";
-import { shareTextFile } from "@/lib/share";
 
 export const Route = createFileRoute("/data")({
   head: () => ({
@@ -39,18 +29,13 @@ function DataPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [pasted, setPasted] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
-  const mergeFileRef = useRef<HTMLInputElement>(null);
 
   const days = Object.keys(state.db).length;
   const logs = Object.values(state.db).reduce((a, d) => a + d.logs.length, 0);
 
-  function backupJson() {
-    return JSON.stringify(getState(), null, 2);
-  }
-
   function download() {
     haptic();
-    const blob = new Blob([backupJson()], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(getState(), null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -60,30 +45,43 @@ function DataPage() {
     setMsg("Backup file downloaded.");
   }
 
-  async function pushOverWifi() {
-    haptic();
-    await shareTextFile({
-      filename: `flow-tracker-backup-${todayKey()}.json`,
-      text: backupJson(),
-      title: "Flow Tracker backup",
-      mime: "application/json",
-    });
-    setMsg("Share sheet opened — pick Nearby Share / Quick Share / any app on the same WiFi.");
-  }
-
   function applyImport(text: string, merge: boolean) {
-    const incoming = parseBackup(text);
-    if (!incoming) {
-      setMsg("That file isn't a readable Flow Tracker backup (couldn't find any day data).");
-      return;
-    }
-    const { days: d, logs: l } = backupStats(incoming);
-    if (merge) {
-      mergeBackup(incoming);
-      setMsg(`Merged backup: ${d} day(s), ${l} session(s) considered.`);
-    } else {
-      replaceState(incoming);
-      setMsg(`Data replaced from backup: ${d} day(s), ${l} session(s) restored.`);
+    try {
+      const incoming = JSON.parse(text) as AppState;
+      if (!incoming || typeof incoming !== "object" || !incoming.db) throw new Error("bad file");
+      if (merge) {
+        const current = getState();
+        const db = { ...current.db };
+        for (const key of Object.keys(incoming.db)) {
+          const a = db[key];
+          const b = incoming.db[key];
+          if (!a) db[key] = b;
+          else {
+            const ids = new Set(a.logs.map((l) => l.id));
+            db[key] = {
+              ...a,
+              ...b,
+              logs: [...a.logs, ...b.logs.filter((l) => !ids.has(l.id))],
+              tasks: a.tasks.length ? a.tasks : b.tasks,
+              slotTargets: { ...b.slotTargets, ...a.slotTargets },
+              slotAssignments: { ...b.slotAssignments, ...a.slotAssignments },
+              disabledSlots: Array.from(new Set([...a.disabledSlots, ...b.disabledSlots])),
+            };
+          }
+        }
+        const spendIds = new Set(current.spends.map((s) => s.id));
+        replaceState({
+          ...current,
+          db,
+          spends: [...current.spends, ...incoming.spends.filter((s) => !spendIds.has(s.id))],
+        });
+        setMsg("Backup merged into current data.");
+      } else {
+        replaceState(incoming);
+        setMsg("Data replaced from backup.");
+      }
+    } catch {
+      setMsg("That file isn't a valid Flow Tracker backup.");
     }
   }
 
@@ -105,33 +103,26 @@ function DataPage() {
         <Btn className="mt-3 w-full" onClick={download}>
           <Download className="h-4 w-4" /> Export backup file
         </Btn>
-        <Btn variant="success" className="mt-2 w-full" onClick={pushOverWifi}>
-          <Wifi className="h-4 w-4" /> Push to PC / nearby device
-        </Btn>
         <Btn
           variant="outline"
           className="mt-2 w-full"
           onClick={() => {
-            void navigator.clipboard?.writeText(backupJson());
+            void navigator.clipboard?.writeText(JSON.stringify(getState()));
             setMsg("Backup JSON copied to clipboard.");
           }}
         >
           <Copy className="h-4 w-4" /> Copy JSON to clipboard
         </Btn>
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          "Push" opens the system share sheet: send the file straight to your PC with Nearby /
-          Quick Share, WiFi Direct, or any local-network app — no clipboard needed.
-        </p>
       </Card>
 
       <Card>
         <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-          Import / restore
+          Import
         </div>
         <input
           ref={fileRef}
           type="file"
-          accept="application/json,.json,text/plain"
+          accept="application/json"
           className="hidden"
           onChange={async (e) => {
             const file = e.target.files?.[0];
@@ -140,27 +131,8 @@ function DataPage() {
             e.target.value = "";
           }}
         />
-        <input
-          ref={mergeFileRef}
-          type="file"
-          accept="application/json,.json,text/plain"
-          className="hidden"
-          onChange={async (e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            applyImport(await file.text(), true);
-            e.target.value = "";
-          }}
-        />
         <Btn variant="success" className="mt-2 w-full" onClick={() => fileRef.current?.click()}>
-          <Upload className="h-4 w-4" /> Restore from file (replace all)
-        </Btn>
-        <Btn
-          variant="outline"
-          className="mt-2 w-full"
-          onClick={() => mergeFileRef.current?.click()}
-        >
-          <RotateCcw className="h-4 w-4" /> Merge a file into current data
+          <Upload className="h-4 w-4" /> Import file (replace all)
         </Btn>
         <textarea
           value={pasted}
@@ -176,10 +148,6 @@ function DataPage() {
             Replace
           </Btn>
         </div>
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          Older exports work too — bare day maps and backups without settings or spends are
-          upgraded automatically on import.
-        </p>
       </Card>
 
       {msg ? (
