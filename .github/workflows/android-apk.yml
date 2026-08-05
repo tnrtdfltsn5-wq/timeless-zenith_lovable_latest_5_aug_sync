@@ -2,7 +2,7 @@ name: Build Android APK
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, tnrtdfltsn5-wq-legendary-invention]
     tags: ["v*"]
   workflow_dispatch: {}   # lets you trigger a build manually from the Actions tab
 
