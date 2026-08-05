@@ -46,6 +46,10 @@ const THEMES = [
   { id: "ember", label: "Ember" },
   { id: "rose", label: "Rose" },
   { id: "mono", label: "Mono" },
+  { id: "cosmic", label: "Cosmic" },
+  { id: "ocean", label: "Ocean" },
+  { id: "sunset", label: "Sunset" },
+  { id: "mint", label: "Mint" },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
