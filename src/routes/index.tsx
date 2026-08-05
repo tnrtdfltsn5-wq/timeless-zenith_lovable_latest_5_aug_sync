@@ -850,9 +850,6 @@ function TimerPage() {
         </div>
       ) : null}
 
-    </div>
-
-
       <Modal open={streakEdit} onClose={() => setStreakEdit(false)} title="Streak goal">
         <p className="text-xs text-muted-foreground">
           Hit your daily score target this many days in a row to claim the streak reward.
