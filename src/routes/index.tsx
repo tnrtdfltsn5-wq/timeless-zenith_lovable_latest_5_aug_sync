@@ -890,8 +890,8 @@ function TimerPage() {
           Done
         </Btn>
       </Modal>
+    </div>
   );
-}
 
 function ManualLogger() {
   const state = useAppState();
