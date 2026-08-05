@@ -201,6 +201,7 @@ const defaultState: AppState = {
     scoreTarget: 1200,
     streakTargetDays: 15,
     streakClaims: [],
+    sleepSlots: [],
   },
   timer: { ...defaultTimer },
   lastSession: null,
