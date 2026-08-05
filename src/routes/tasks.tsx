@@ -117,7 +117,9 @@ function TasksPage() {
 
   return (
     <div className="space-y-4">
-      <SectionTitle>Daily targets & tasks</SectionTitle>
+      <SectionTitle right={<TaskMenu activeDate={activeDate} />}>
+        Daily targets & tasks
+      </SectionTitle>
 
       <Card>
         <div className="grid grid-cols-2 gap-3">
