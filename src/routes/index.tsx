@@ -486,6 +486,38 @@ function TimerPage() {
           </span>
         </div>
 
+        <div
+          className={cn(
+            "mt-3 rounded-xl p-3 text-xs",
+            pace.feasible ? "bg-surface-2" : "bg-danger/10",
+          )}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-semibold text-muted-foreground">Pace needed</span>
+            <span className="font-display text-sm font-extrabold">
+              {hydrated ? `${Math.ceil(pace.perSlot)} min / slot` : "—"}
+            </span>
+          </div>
+          <div className="mt-1 text-[11px] text-muted-foreground">
+            {formatHM(Math.round(pace.remainingTarget))} left over{" "}
+            {Math.ceil(pace.currentUsable)} min of this slot
+            {pace.fullSlotsLeft > 0 ? ` + ${pace.fullSlotsLeft} full slot(s)` : ""}
+          </div>
+          {pace.mustFillCurrent && pace.currentUsable > 0 ? (
+            <div className="mt-2 flex items-start gap-2 rounded-lg bg-danger/15 p-2 font-semibold text-danger">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                No breaks this slot — use all {Math.ceil(pace.currentUsable)} remaining minutes.
+              </span>
+            </div>
+          ) : null}
+          {!pace.feasible ? (
+            <div className="mt-1 text-[11px] font-semibold text-danger">
+              Target exceeds the time left today — trim it or enable more slots.
+            </div>
+          ) : null}
+        </div>
+
         <div className="mt-3 rounded-xl bg-surface-2 p-3 text-xs">
           <div>
             <span className="font-semibold text-muted-foreground">Scheduled for this slot: </span>
