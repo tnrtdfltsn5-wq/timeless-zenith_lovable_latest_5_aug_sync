@@ -53,10 +53,22 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     setMounted(true);
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
   }, []);
+
+  const nowDate = new Date(now);
+  const clock = nowDate.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+  const dateLabel = formatDateDMY(nowDate);
 
 
   useEffect(() => {
