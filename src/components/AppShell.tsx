@@ -93,7 +93,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="mx-auto flex min-h-[100dvh] w-full max-w-[560px] flex-col bg-background">
-      <header className="sticky top-0 z-30 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/85 px-4 py-2 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/85 px-4 py-2 backdrop-blur-xl pt-[max(0.5rem,env(safe-area-inset-top))]">
         <div className="min-w-0">
           <div className="font-mono text-base leading-none font-extrabold tabular-nums">
             {mounted ? clock : "--:--:--"}
@@ -117,7 +117,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="flex-1 px-4 pt-4 pb-28">
+      <main className="flex-1 px-4 pt-4 pb-[max(7rem,calc(7rem+env(safe-area-inset-bottom))]">
         {mounted ? (
           children
         ) : (

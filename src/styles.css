@@ -35,6 +35,8 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-danger: var(--destructive);
+  --color-danger-foreground: var(--destructive-foreground);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
@@ -498,6 +500,21 @@
 
 @utility softpulse {
   animation: softpulse 2.2s ease-out infinite;
+}
+
+/* Danger pulse animation for time running out */
+@keyframes danger-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
+
+@utility danger-pulse {
+  animation: danger-pulse 1.8s ease-in-out infinite;
 }
 
 /* Celebration popup — slot target hit */

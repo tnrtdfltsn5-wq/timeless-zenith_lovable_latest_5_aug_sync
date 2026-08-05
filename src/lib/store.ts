@@ -198,7 +198,7 @@ const defaultState: AppState = {
     pomoBreak: 5,
     soundOn: true,
     coeff: { ...DEFAULT_COEFF },
-    scoreTarget: 1200,
+    scoreTarget: 3500,
     streakTargetDays: 15,
     streakClaims: [],
     sleepSlots: [],
@@ -394,7 +394,7 @@ export function useAppState(): AppState {
 
 export function blankDay(): DayData {
   return {
-    targetHours: 6,
+    targetHours: 12,
     tasks: [],
     logs: [],
     breaks: [],
@@ -875,7 +875,11 @@ export function computeStreak(db: Record<string, DayData>, todayK = todayKey()) 
     const prevMins = totalMinsOf(db, prev);
     count += 1;
     if (prevMins <= 0) break;
-    if (mins < prevMins) break;
+    // New streak logic: reset if logged less than previous day
+    // UNLESS yesterday exceeded target (then use yesterday as new minimum)
+    const prevDay = db[prev];
+    const targetMins = (prevDay?.targetHours ?? 6) * 60;
+    if (mins < prevMins && prevMins < targetMins) break;
     cursor = prev;
   }
   return { count, todayMins: totalMinsOf(db, todayK), yesterdayMins: totalMinsOf(db, prevDateKey(todayK)) };
