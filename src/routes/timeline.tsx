@@ -17,7 +17,7 @@ import {
   useAppState,
   type DayData,
 } from "@/lib/store";
-import { Btn, Card, Modal, Progress, SectionTitle, inputClass, useHydrated } from "@/components/kit";
+import { Btn, Card, DateInput, Modal, Progress, SectionTitle, inputClass, useHydrated } from "@/components/kit";
 import { haptic } from "@/lib/alarm";
 import { cn } from "@/lib/utils";
 

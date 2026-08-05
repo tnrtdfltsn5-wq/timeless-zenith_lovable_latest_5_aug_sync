@@ -16,7 +16,7 @@ import {
   todayKey,
   useAppState,
 } from "@/lib/store";
-import { Btn, Card, SectionTitle, inputClass, useHydrated } from "@/components/kit";
+import { Btn, Card, DateInput, SectionTitle, useHydrated } from "@/components/kit";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/report")({
@@ -112,17 +112,7 @@ function ReportPage() {
   return (
     <div className="space-y-4">
       <SectionTitle
-        right={
-          <div className="flex flex-col items-end gap-0.5">
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className={cn(inputClass, "w-auto py-1.5 text-xs")}
-            />
-            <span className="text-[10px] text-muted-foreground">{formatDateDMY(date)}</span>
-          </div>
-        }
+        right={<DateInput className="w-[150px]" value={date} onChange={setDate} />}
       >
         Report generation
       </SectionTitle>

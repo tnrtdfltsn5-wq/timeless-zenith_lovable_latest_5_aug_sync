@@ -13,7 +13,7 @@ import {
   todayKey,
   useAppState,
 } from "@/lib/store";
-import { Btn, Card, SectionTitle, Stat, inputClass, useHydrated } from "@/components/kit";
+import { Btn, Card, DateInput, SectionTitle, Stat, inputClass, useHydrated } from "@/components/kit";
 import { haptic } from "@/lib/alarm";
 import { cn } from "@/lib/utils";
 
@@ -114,15 +114,7 @@ function ScorePage() {
         <div className="mt-2 grid grid-cols-2 gap-3">
           <label className="text-xs font-semibold text-muted-foreground">
             Date
-            <input
-              type="date"
-              value={activeDate}
-              onChange={(e) => setActiveDate(e.target.value)}
-              className={cn(inputClass, "mt-1")}
-            />
-            <span className="mt-0.5 block text-[10px] text-muted-foreground">
-              {formatDateDMY(activeDate)}
-            </span>
+            <DateInput className="mt-1 w-full" value={activeDate} onChange={setActiveDate} />
           </label>
           <label className="text-xs font-semibold text-muted-foreground">
             Target hours
