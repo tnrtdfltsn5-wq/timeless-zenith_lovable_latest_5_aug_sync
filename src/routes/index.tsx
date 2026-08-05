@@ -892,6 +892,8 @@ function TimerPage() {
       </Modal>
     </div>
   );
+}
+
 
 function ManualLogger() {
   const state = useAppState();
