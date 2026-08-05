@@ -49,7 +49,15 @@ function ReportPage() {
   const score = computeDayScore(state.db[date], state.settings.coeff);
   const targetMins = (day.targetHours || 0) * 60;
   const dayPct = targetMins ? Math.min(100, (totals.total / targetMins) * 100) : 0;
-  const usedSlots = slots.filter((s) => !s.disabled && (s.loggedMins > 0 || s.targetMins > 0));
+  const sleepSet = new Set(state.settings.sleepSlots ?? []);
+  const usedSlots = slots.filter(
+    (s) => !s.disabled && !sleepSet.has(s.slot) && (s.loggedMins > 0 || s.targetMins > 0),
+  );
+  const sleepSlots = slots.filter((s) => sleepSet.has(s.slot));
+  const sleepLabel = sleepSlots.length
+    ? `${slotLabel12(sleepSlots[0].slot).split(" – ")[0]} – ${slotLabel12(sleepSlots[sleepSlots.length - 1].slot).split(" – ").pop()}`
+    : "";
+  const sleepMins = sleepSlots.length * 60;
   const tasks = day.tasks ?? [];
   const taskPct = tasks.length
     ? (tasks.reduce((a, t) => a + taskProgress(t), 0) / tasks.length) * 100
@@ -66,6 +74,8 @@ function ReportPage() {
       dayPct,
       scoreGoal,
       usedSlots,
+      sleepLabel,
+      sleepMins,
       tasks,
       taskPct,
       day,
@@ -156,6 +166,8 @@ function ReportPage() {
               dayPct={dayPct}
               scoreGoal={scoreGoal}
               usedSlots={usedSlots}
+              sleepLabel={sleepLabel}
+              sleepMins={sleepMins}
               tasks={tasks}
               taskPct={taskPct}
               day={day}
@@ -178,6 +190,8 @@ function ReportPreview({
   dayPct,
   scoreGoal,
   usedSlots,
+  sleepLabel,
+  sleepMins,
   tasks,
   taskPct,
   day,
@@ -190,6 +204,8 @@ function ReportPreview({
   dayPct: number;
   scoreGoal: number;
   usedSlots: ReturnType<typeof computeSlots>;
+  sleepLabel: string;
+  sleepMins: number;
   tasks: ReturnType<typeof getDay>["tasks"];
   taskPct: number;
   day: ReturnType<typeof getDay>;
@@ -278,6 +294,22 @@ function ReportPreview({
           })}
         </div>
       )}
+
+      {sleepLabel ? (
+        <div
+          className="mt-1 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b pb-1.5"
+          style={{ borderColor: "color-mix(in oklab, var(--ink-k) 25%, transparent)" }}
+        >
+          <span className="font-mono text-[11px] font-bold">{sleepLabel}</span>
+          <span
+            className="block h-2 w-full"
+            style={{ background: "color-mix(in oklab, var(--ink-k) 35%, transparent)" }}
+          />
+          <span className="text-right font-mono text-[11px] font-bold">
+            SLEEP · {formatHM(sleepMins)}
+          </span>
+        </div>
+      ) : null}
 
       {/* Tasks */}
       <PreviewHeading>Tasks · {Math.round(taskPct)}% complete</PreviewHeading>
@@ -391,11 +423,13 @@ function buildStandaloneHtml(args: {
   dayPct: number;
   scoreGoal: number;
   usedSlots: ReturnType<typeof computeSlots>;
+  sleepLabel: string;
+  sleepMins: number;
   tasks: ReturnType<typeof getDay>["tasks"];
   taskPct: number;
   day: ReturnType<typeof getDay>;
 }): string {
-  const { dateLabel, totals, breaks, score, targetMins, dayPct, scoreGoal, usedSlots, tasks, taskPct, day } = args;
+  const { dateLabel, totals, breaks, score, targetMins, dayPct, scoreGoal, usedSlots, sleepLabel, sleepMins, tasks, taskPct, day } = args;
   const scorePct = Math.min(100, (score / scoreGoal) * 100);
 
   const slotRows = usedSlots.length
@@ -413,6 +447,14 @@ function buildStandaloneHtml(args: {
         })
         .join("")
     : "<p style=\"font-size:12px\">No slot activity recorded for this day.</p>";
+
+  const sleepRow = sleepLabel
+    ? `<div style="display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;border-bottom:1px solid rgba(0,0,0,.2);padding-bottom:6px">
+        <span style="font-family:monospace;font-size:11px;font-weight:700">${esc(sleepLabel)}</span>
+        <span style="display:block;height:8px;background:rgba(0,0,0,.35)"></span>
+        <span style="text-align:right;font-family:monospace;font-size:11px;font-weight:700">SLEEP · ${formatHM(sleepMins)}</span>
+      </div>`
+    : "";
 
   const taskRows = tasks.length
     ? tasks
@@ -517,7 +559,7 @@ function buildStandaloneHtml(args: {
   </div>
 
   <h3 class="heading">Slot by slot</h3>
-  ${slotRows}
+  ${slotRows}${sleepRow}
 
   <h3 class="heading">Tasks · ${Math.round(taskPct)}% complete</h3>
   ${taskRows}
