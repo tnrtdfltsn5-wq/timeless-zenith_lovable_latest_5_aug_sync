@@ -131,6 +131,8 @@ export interface Settings {
   streakTargetDays: number;
   /** streak lengths already rewarded (avoids double payouts) */
   streakClaims: { id: number; days: number; date: string; points: number }[];
+  /** slot keys treated as sleep — collapsed into one bar on the report */
+  sleepSlots: string[];
 }
 
 export interface TimerState {
