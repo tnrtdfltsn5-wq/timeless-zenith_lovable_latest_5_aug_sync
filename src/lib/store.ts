@@ -669,21 +669,37 @@ export function paceInfo(day: DayData, dateKey: string, now: Date) {
 
   let usableMins = 0;
   let slotsLeft = 0;
+  let fullSlotsLeft = 0;
   ALL_SLOTS.forEach((slot) => {
     const h = slotHourNumber(slot);
     if (disabled.has(slot) || h < currentHour) return;
     usableMins += h === currentHour ? minsLeftInCurrentHour : 60;
     slotsLeft += 1;
+    if (h > currentHour) fullSlotsLeft += 1;
   });
+
+  const currentUsable = disabled.has(slotKeyOfHour(currentHour)) ? 0 : minsLeftInCurrentHour;
+  /**
+   * Pace for each *whole* slot still ahead: whatever cannot be squeezed into
+   * the remainder of the current slot has to be spread over the full slots.
+   */
+  const afterCurrent = Math.max(0, remainingTarget - currentUsable);
+  const perSlot =
+    fullSlotsLeft > 0 ? afterCurrent / fullSlotsLeft : Math.min(remainingTarget, currentUsable);
 
   return {
     remainingTarget,
     usableMins,
     slotsLeft,
+    fullSlotsLeft,
+    /** minutes of the current slot still usable */
+    currentUsable,
     /** average minutes of study needed per remaining hour of clock time */
     perHour: usableMins > 0 ? (remainingTarget / usableMins) * 60 : 0,
-    /** average minutes needed in each remaining slot */
-    perSlot: slotsLeft > 0 ? remainingTarget / slotsLeft : 0,
+    /** minutes needed in each remaining *full* slot */
+    perSlot,
+    /** the current slot has to be used end-to-end with no breaks */
+    mustFillCurrent: remainingTarget >= currentUsable && currentUsable > 0,
     feasible: remainingTarget <= usableMins,
   };
 }
