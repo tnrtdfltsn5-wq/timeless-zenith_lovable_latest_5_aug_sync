@@ -147,6 +147,40 @@ function ReportPage() {
       </Card>
 
 
+      <Card>
+        <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+          Sleep slots
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Tap the hours you sleep — they collapse into one minimal bar on the report instead of
+          cluttering the slot list.
+        </p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {ALL_SLOTS.map((slot) => {
+            const on = (state.settings.sleepSlots ?? []).includes(slot);
+            return (
+              <button
+                key={slot}
+                onClick={() =>
+                  setState((st) => {
+                    const list = new Set(st.settings.sleepSlots ?? []);
+                    if (list.has(slot)) list.delete(slot);
+                    else list.add(slot);
+                    st.settings.sleepSlots = ALL_SLOTS.filter((x) => list.has(x));
+                  })
+                }
+                className={cn(
+                  "press rounded-lg px-2 py-1 text-[11px] font-semibold",
+                  on ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground",
+                )}
+              >
+                {slotLabel12(slot).split(" – ")[0]}
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+
       {/* On-screen preview (single continuous page) */}
       {!hydrated ? null : (
         <Card className="p-0">
