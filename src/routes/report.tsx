@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Download, FileText, Image as ImageIcon, Share2 } from "lucide-react";
 import { shareReportOverWifi } from "@/lib/share";
 import {
+  ALL_SLOTS,
+  setState,
   breakTotals,
   computeDayScore,
   computeSlots,
