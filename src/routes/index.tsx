@@ -205,6 +205,7 @@ function TimerPage() {
   const compareBase = Math.max(yTotals.total, totals.total, 1);
   const streak = computeStreak(state.db);
   const streakGoal = state.settings.streakTargetDays || 1;
+  const [streakEdit, setStreakEdit] = useState(false);
   const clockNow = nowDate.toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
@@ -1040,6 +1041,47 @@ function ManualLogger() {
         </div>
       ) : null}
     </Card>
+
+      <Modal open={streakEdit} onClose={() => setStreakEdit(false)} title="Streak goal">
+        <p className="text-xs text-muted-foreground">
+          Hit your daily score target this many days in a row to claim the streak reward.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {[7, 15, 21, 30, 60, 100].map((d) => (
+            <button
+              key={d}
+              onClick={() => {
+                haptic();
+                setState((st) => {
+                  st.settings.streakTargetDays = d;
+                });
+              }}
+              className={cn(
+                "press rounded-xl px-3 py-2 text-sm font-semibold",
+                streakGoal === d ? "bg-primary text-primary-foreground" : "bg-secondary",
+              )}
+            >
+              {d} days
+            </button>
+          ))}
+        </div>
+        <div className="mt-3">
+          <div className="text-[11px] text-muted-foreground">Custom</div>
+          <NumInput
+            className="mt-1 w-full"
+            value={streakGoal}
+            min={1}
+            onChange={(v) =>
+              setState((st) => {
+                st.settings.streakTargetDays = Math.max(1, v);
+              })
+            }
+          />
+        </div>
+        <Btn className="mt-3 w-full" onClick={() => setStreakEdit(false)}>
+          Done
+        </Btn>
+      </Modal>
   );
 }
 
