@@ -458,88 +458,6 @@ function TimerPage() {
         </div>
       </Card>
 
-      {/* Ongoing slot */}
-      <Card>
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-          <div className="min-w-0">
-            <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-              Ongoing slot
-            </div>
-            <div className="truncate font-display text-base font-bold">
-              {slotLabel12(currentSlotKey)}
-            </div>
-          </div>
-          <span className="shrink-0 rounded-full bg-accent px-2.5 py-1 text-[11px] font-bold text-accent-foreground">
-            {currentSlot.disabled ? "Reserved / off" : `${Math.round(slotPct)}%`}
-          </span>
-        </div>
-        <Progress className="mt-2" value={slotPct} />
-        <div className="mt-1.5 flex justify-between text-xs text-muted-foreground">
-          <span>
-            Slot progress: <strong className="text-success">{formatHM(slotLoggedLive)}</strong> /{" "}
-            {formatHM(currentSlot.targetMins)}
-          </span>
-          <span>
-            {formatHM(Math.max(0, currentSlot.targetMins - slotLoggedLive))} to go ·{" "}
-            <strong className="text-warning">
-              {hydrated ? Math.ceil(minsLeftInSlot) : 0} min left
-            </strong>
-          </span>
-        </div>
-
-        <div
-          className={cn(
-            "mt-3 rounded-xl p-3 text-xs",
-            pace.feasible ? "bg-surface-2" : "bg-danger/10",
-          )}
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="font-semibold text-muted-foreground">Pace needed</span>
-            <span className="font-display text-sm font-extrabold">
-              {hydrated ? `${Math.ceil(pace.perSlot)} min / slot` : "—"}
-            </span>
-          </div>
-          <div className="mt-1 text-[11px] text-muted-foreground">
-            {formatHM(Math.round(pace.remainingTarget))} left over{" "}
-            {Math.ceil(pace.currentUsable)} min of this slot
-            {pace.fullSlotsLeft > 0 ? ` + ${pace.fullSlotsLeft} full slot(s)` : ""}
-          </div>
-          {pace.mustFillCurrent && pace.currentUsable > 0 ? (
-            <div className="mt-2 flex items-start gap-2 rounded-lg bg-danger/15 p-2 font-semibold text-danger">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>
-                No breaks this slot — use all {Math.ceil(pace.currentUsable)} remaining minutes.
-              </span>
-            </div>
-          ) : null}
-          {!pace.feasible ? (
-            <div className="mt-1 text-[11px] font-semibold text-danger">
-              Target exceeds the time left today — trim it or enable more slots.
-            </div>
-          ) : null}
-        </div>
-
-        <div className="mt-3 rounded-xl bg-surface-2 p-3 text-xs">
-          <div>
-            <span className="font-semibold text-muted-foreground">Scheduled for this slot: </span>
-            <span className="font-semibold">
-              {slotTaskList.length ? slotTaskList.join(" · ") : "No task assigned to this slot"}
-            </span>
-          </div>
-          {activeTask ? (
-            <div className="mt-1.5 flex items-center gap-2">
-              <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary uppercase">
-                Doing now
-              </span>
-              <span className="min-w-0 truncate font-semibold">{activeTask.name}</span>
-              <span className="ml-auto shrink-0 text-[10px] font-bold text-muted-foreground">
-                {Math.round(taskProgress(activeTask) * 100)}%
-              </span>
-            </div>
-          ) : null}
-        </div>
-      </Card>
-
       {/* Timer */}
       <Card glow className="text-center">
         <div className="mb-3 grid grid-cols-2 gap-1.5 rounded-2xl bg-surface-2 p-1.5">
@@ -642,6 +560,88 @@ function TimerPage() {
             Keeps playing with the screen off — audio + vibration fire at each phase change.
           </p>
         ) : null}
+      </Card>
+
+      {/* Ongoing slot */}
+      <Card>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+              Ongoing slot
+            </div>
+            <div className="truncate font-display text-base font-bold">
+              {slotLabel12(currentSlotKey)}
+            </div>
+          </div>
+          <span className="shrink-0 rounded-full bg-accent px-2.5 py-1 text-[11px] font-bold text-accent-foreground">
+            {currentSlot.disabled ? "Reserved / off" : `${Math.round(slotPct)}%`}
+          </span>
+        </div>
+        <Progress className="mt-2" value={slotPct} />
+        <div className="mt-1.5 flex justify-between text-xs text-muted-foreground">
+          <span>
+            Slot progress: <strong className="text-success">{formatHM(slotLoggedLive)}</strong> /{" "}
+            {formatHM(currentSlot.targetMins)}
+          </span>
+          <span>
+            {formatHM(Math.max(0, currentSlot.targetMins - slotLoggedLive))} to go ·{" "}
+            <strong className="text-warning">
+              {hydrated ? Math.ceil(minsLeftInSlot) : 0} min left
+            </strong>
+          </span>
+        </div>
+
+        <div className="mt-3 rounded-xl bg-surface-2 p-3 text-xs">
+          <div>
+            <span className="font-semibold text-muted-foreground">Scheduled for this slot: </span>
+            <span className="font-semibold">
+              {slotTaskList.length ? slotTaskList.join(" · ") : "No task assigned to this slot"}
+            </span>
+          </div>
+          {activeTask ? (
+            <div className="mt-1.5 flex items-center gap-2">
+              <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary uppercase">
+                Doing now
+              </span>
+              <span className="min-w-0 truncate font-semibold">{activeTask.name}</span>
+              <span className="ml-auto shrink-0 text-[10px] font-bold text-muted-foreground">
+                {Math.round(taskProgress(activeTask) * 100)}%
+              </span>
+            </div>
+          ) : null}
+        </div>
+
+        <div
+          className={cn(
+            "mt-3 rounded-xl p-3 text-xs",
+            pace.feasible ? "bg-surface-2" : "bg-danger/10",
+          )}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-semibold text-muted-foreground">Pace needed</span>
+            <span className="font-display text-sm font-extrabold">
+              {hydrated ? `${Math.ceil(pace.perSlot)} min / slot` : "—"}
+            </span>
+          </div>
+          <div className="mt-1 text-[11px] text-muted-foreground">
+            {formatHM(Math.round(pace.remainingTarget))} left over{" "}
+            {Math.ceil(pace.currentUsable)} min of this slot
+            {pace.fullSlotsLeft > 0 ? ` + ${pace.fullSlotsLeft} full slot(s)` : ""}
+          </div>
+          {pace.mustFillCurrent && pace.currentUsable > 0 ? (
+            <div className="mt-2 flex items-start gap-2 rounded-lg bg-danger/15 p-2 font-semibold text-danger">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                No breaks this slot — use all {Math.ceil(pace.currentUsable)} remaining minutes.
+              </span>
+            </div>
+          ) : null}
+          {!pace.feasible ? (
+            <div className="mt-1 text-[11px] font-semibold text-danger">
+              Target exceeds the time left today — trim it or enable more slots.
+            </div>
+          ) : null}
+        </div>
       </Card>
 
       {/* Day progress vs target */}
