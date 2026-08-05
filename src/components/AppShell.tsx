@@ -18,7 +18,7 @@ import {
   Palette,
   X,
 } from "lucide-react";
-import { hydrate, setState, useAppState } from "@/lib/store";
+import { formatDateDMY, hydrate, setState, useAppState } from "@/lib/store";
 import { haptic } from "@/lib/alarm";
 import { cn } from "@/lib/utils";
 
