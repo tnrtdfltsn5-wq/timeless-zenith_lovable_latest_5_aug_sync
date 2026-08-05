@@ -881,7 +881,7 @@ function TimerPage() {
             min={1}
             onChange={(v) =>
               setState((st) => {
-                st.settings.streakTargetDays = Math.max(1, v);
+                st.settings.streakTargetDays = Math.max(1, v ?? 1);
               })
             }
           />
